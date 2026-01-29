@@ -30,9 +30,12 @@
     "n8n": {
         "n8nNodesApiVersion": 1,
         "strict": true,
-        "credentials": [],
+        "credentials": [
+            "dist/credentials/CradlAiApi.credentials.js"
+        ],
         "nodes": [
-            "dist/nodes/Example/Example.node.js"
+            "dist/nodes/CradlAI/CradlAi.node.js",
+            "dist/nodes/CradlAI/CradlAiTrigger.node.js"
         ]
     },
     "devDependencies": {
