@@ -1,13 +1,14 @@
 import {
 	type IHookFunctions,
 	type IWebhookFunctions,
-	type IDataObject,
 	type INodeType,
 	type INodeTypeDescription,
 	type IWebhookResponseData,
 	NodeConnectionTypes,
 	ILoadOptionsFunctions,
 	INodePropertyOptions,
+	INodeExecutionData,
+	BINARY_ENCODING,
 } from 'n8n-workflow';
 import { cradlApiRequest } from './api';
 
@@ -217,14 +218,61 @@ export class CradlAiTrigger implements INodeType {
 			},
 
 			async delete(this: IHookFunctions): Promise<boolean> {
+				const agentId = this.getNodeParameter('agentId') as string;
 				const webhookData = this.getWorkflowStaticData('node');
 
 				if (webhookData.actionId !== undefined) {
 					try {
-						/* TODO: delete associated hooks? */
+						const { hooks } = await cradlApiRequest.call(this, { method: 'GET', path: '/hooks' });
+						const deletedHookIds = [];
+
+						for (const hook of hooks) {
+							const updates: { trueActionId?: string | null; falseActionId?: string | null } = {};
+
+							if (hook.trueActionId === webhookData.actionId) {
+								updates.trueActionId = null;
+							}
+
+							if (hook.falseActionId === webhookData.actionId) {
+								updates.falseActionId = null;
+							}
+
+							if (Object.keys(updates).length > 0) {
+								const afterUpdate = { ...hook, ...updates };
+
+								/* Delete the hook if it no longer has any actions */
+								if ([afterUpdate.trueActionId, afterUpdate.falseActionId].every((id) => id == null)) {
+									await cradlApiRequest.call(this, {
+										method: 'DELETE',
+										path: `/hooks/${hook.hookId}`,
+									});
+									deletedHookIds.push(hook.hookId);
+								} else {
+									await cradlApiRequest.call(this, {
+										method: 'PATCH',
+										path: `/hooks/${hook.hookId}`,
+										body: updates,
+									});
+								}
+							}
+						}
+
 						await cradlApiRequest.call(this, {
 							method: 'DELETE',
 							path: `/actions/${webhookData.actionId}`,
+						});
+
+						const agent = await cradlApiRequest.call(this, {
+							method: 'GET',
+							path: `/agents/${agentId}`,
+						});
+
+						await cradlApiRequest.call(this, {
+							method: 'PATCH',
+							path: `/agents/${agentId}`,
+							body: {
+								resourceIds: [...agent.resourceIds].filter((id: string) => id !== webhookData.actionId),
+							},
 						});
 
 						delete webhookData.actionId;
@@ -240,9 +288,37 @@ export class CradlAiTrigger implements INodeType {
 
 	async webhook(this: IWebhookFunctions): Promise<IWebhookResponseData> {
 		const req = this.getRequestObject();
-		
-		return {
-			workflowData: [this.helpers.returnJsonArray(req.body as IDataObject)],
+
+		/* TODO: Calculate hmac signature and compare with header for security */
+
+		const document = await cradlApiRequest.call(this, {
+			method: 'GET',
+			path: `/documents/${req.body.context.documentId}`,
+		});
+
+		const documentContent = await cradlApiRequest.call(this, {
+			method: 'GET',
+			url: document.fileUrl,
+			encoding: 'arraybuffer',
+		});
+
+		const response: INodeExecutionData = {
+			json: {
+				headers: req.headers,
+				params: req.params,
+				query: req.query,
+				body: req.body,
+			},
+			binary: {
+				document: {
+					data: documentContent.toString(BINARY_ENCODING),
+					fileName: document.name,
+					fileSize: document.contentLength,
+					mimeType: document.contentType,
+				},
+			}
 		};
+
+		return { workflowData: [[response]] };
 	}
 }

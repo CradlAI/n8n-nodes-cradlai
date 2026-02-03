@@ -4,7 +4,8 @@ import {
     IHookFunctions,
     IHttpRequestMethods,
     IHttpRequestOptions,
-    ILoadOptionsFunctions
+    ILoadOptionsFunctions,
+    IWebhookFunctions
 } from "n8n-workflow";
 
 export type CradlApiRequest = {
@@ -16,7 +17,7 @@ export type CradlApiRequest = {
     encoding?: 'arraybuffer' | 'blob' | 'document' | 'json' | 'text' | 'stream';
 };
 
-export async function cradlApiRequest(this: IExecuteFunctions | ILoadOptionsFunctions | IHookFunctions, {
+export async function cradlApiRequest(this: IExecuteFunctions | ILoadOptionsFunctions | IHookFunctions | IWebhookFunctions, {
     method,
     path,
     url,
