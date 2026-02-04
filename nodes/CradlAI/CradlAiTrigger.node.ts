@@ -65,6 +65,28 @@ export class CradlAiTrigger implements INodeType {
 				description: 'Select a value from the API. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 				required: true,
 			},
+			{
+				displayName: 'Calculate Signature',
+				name: 'calculateSignature',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to calculate HMAC signature for incoming webhooks for security',
+			},
+			{
+				displayName: 'HMAC Secret',
+				name: 'hmacSecret',
+				type: 'string',
+				typeOptions: {
+					password: true,
+				},
+				default: '',
+				description: 'The secret used to calculate the HMAC signature',
+				displayOptions: {
+					show: {
+						calculateSignature: [true],
+					},
+				},
+			},
 		],
 		usableAsTool: true,
 	};
@@ -87,7 +109,8 @@ export class CradlAiTrigger implements INodeType {
 				const webhookUrl = this.getNodeWebhookUrl('default');
 				if (!webhookUrl) return false;
 
-				return await updateAction.call(this, action, webhookUrl)
+				const hmacSecret = this.getNodeParameter('hmacSecret') as string | undefined;
+				return await updateAction.call(this, action, webhookUrl, hmacSecret);
 			},
 
 			async create(this: IHookFunctions): Promise<boolean> {
@@ -97,7 +120,8 @@ export class CradlAiTrigger implements INodeType {
 				const webhookUrl = this.getNodeWebhookUrl('default');
 				if (!webhookUrl) return false;
 
-				return await createAction.call(this, agentId, webhookUrl);
+				const hmacSecret = this.getNodeParameter('hmacSecret') as string | undefined;
+				return await createAction.call(this, agentId, webhookUrl, hmacSecret);
 			},
 
 			async delete(this: IHookFunctions): Promise<boolean> {

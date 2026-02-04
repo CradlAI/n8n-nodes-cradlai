@@ -1,4 +1,16 @@
-import { BINARY_ENCODING, IExecuteFunctions, IHookFunctions, ILoadOptionsFunctions, INodeExecutionData, INodePropertyOptions, IWebhookFunctions, IWebhookResponseData, JsonObject } from 'n8n-workflow';
+import {
+    BINARY_ENCODING,
+    IExecuteFunctions,
+    IHookFunctions,
+    ILoadOptionsFunctions,
+    INodeExecutionData,
+    INodePropertyOptions,
+    IWebhookFunctions,
+    IWebhookResponseData,
+    JsonObject,
+    NodeOperationError,
+} from 'n8n-workflow';
+import { createHmac } from 'crypto';
 import { cradlApiRequest } from './api';
 import { EVALUATE_PREDICTION_FUNCTION_ID, EXPORT_TO_N8N_FUNCTION_ID } from './constants';
 
@@ -11,7 +23,49 @@ export type Action = {
 export async function handleWebhookResponse(this: IWebhookFunctions): Promise<IWebhookResponseData> {
     const req = this.getRequestObject();
 
-    /* TODO: Calculate hmac signature and compare with header for security */
+    const calculateSignature = this.getNodeParameter('calculateSignature', false) as boolean;
+
+    if (calculateSignature) {
+        const signature = req.headers['x-cradl-signature'] as string | undefined;
+        if (!signature) {
+            throw new NodeOperationError(this.getNode(), 'X-Cradl-Signature header is missing');
+        }
+
+        const signedHeaders = req.headers['x-cradl-signedheaders'] as string | undefined;
+        if (!signedHeaders) {
+            throw new NodeOperationError(this.getNode(), 'X-Cradl-SignedHeaders header is missing');
+        }
+
+        const data = this.getWorkflowStaticData('node');
+        const hmacSecret = this.getNodeParameter('hmacSecret', data.actionId) as string | undefined;
+        if (!hmacSecret) {
+            throw new NodeOperationError(this.getNode(), 'HMAC secret is required to calculate signature');
+        }
+
+        const signedHeadersList = signedHeaders.split(',');
+        signedHeadersList.sort();
+
+        const parts = [
+            req.method.toUpperCase(),
+            `${req.headers['x-forwarded-proto'] ?? req.protocol}://${req.host}${req.originalUrl}`,
+        ];
+
+        for (const header of signedHeadersList) {
+            const headerValue = req.headers[header];
+            if (!headerValue) {
+                throw new NodeOperationError(this.getNode(), `Signed header ${header} is missing`);
+            }
+            parts.push(`${header.toLowerCase()}:${headerValue}`);
+        }
+
+        parts.push(req.rawBody.toString());
+
+        const calculatedSignature = createHmac('sha256', hmacSecret).update(parts.join('')).digest('hex');
+
+        if (calculatedSignature !== signature) {
+            throw new NodeOperationError(this.getNode(), `Invalid signature: received ${signature} but expected ${calculatedSignature} signing message: ${parts.join('')}`);
+        }
+    }
 
     const document = await cradlApiRequest.call(this, {
         method: 'GET',
@@ -47,14 +101,14 @@ export async function handleWebhookResponse(this: IWebhookFunctions): Promise<IW
 export async function getAction(this: IHookFunctions | IExecuteFunctions, agentId: string): Promise<Action | undefined> {
     const data = this.getWorkflowStaticData('node');
 
-    try {
-        if (data.actionId) {
+    if (data.actionId) {
+        try {
             return await cradlApiRequest.call(this, {
                 method: 'GET',
                 path: `/actions/${data.actionId}`,
             });
-        }
-    } catch { /* empty */ }
+        } catch { /* empty */ }
+    }
 
     try {
         const agent = await cradlApiRequest.call(this, {
@@ -86,7 +140,7 @@ export async function getAction(this: IHookFunctions | IExecuteFunctions, agentI
     return;
 }
 
-export async function updateAction(this: IHookFunctions | IExecuteFunctions, action: Action, webhookUrl: string): Promise<boolean> {
+export async function updateAction(this: IHookFunctions | IExecuteFunctions, action: Action, webhookUrl: string, hmacSecret?: string): Promise<boolean> {
     const data = this.getWorkflowStaticData('node');
  
     let needsUpdate = false;
@@ -95,8 +149,12 @@ export async function updateAction(this: IHookFunctions | IExecuteFunctions, act
     if (action.config.url !== webhookUrl) needsUpdate = true;
     if (action.config.httpMethod !== 'POST') needsUpdate = true;
     if (action.config.nodeId !== this.getNode().id) needsUpdate = true;
+    if (action.config.hmacSecret !== hmacSecret) needsUpdate = true;
 
-    if (!needsUpdate) return true;
+    if (!needsUpdate) {
+        data.actionId = action.actionId;
+        return true;
+    }
 
     try {
         cradlApiRequest.call(this, {
@@ -105,9 +163,10 @@ export async function updateAction(this: IHookFunctions | IExecuteFunctions, act
             body: {
                 functionId: EXPORT_TO_N8N_FUNCTION_ID,
                 config: {
-                    url: webhookUrl,
+                    hmacSecret,
                     httpMethod: 'POST',
                     nodeId: this.getNode().id,
+                    url: webhookUrl,
                 },
             },
         })
@@ -119,7 +178,7 @@ export async function updateAction(this: IHookFunctions | IExecuteFunctions, act
     return false;
 }
 
-export async function createAction(this: IHookFunctions | IExecuteFunctions, agentId: string, webhookUrl: string): Promise<boolean> {
+export async function createAction(this: IHookFunctions | IExecuteFunctions, agentId: string, webhookUrl: string, hmacSecret?: string): Promise<boolean> {
     const data = this.getWorkflowStaticData('node');
 
     const cleanupFns: (() => Promise<unknown>)[] = [];
@@ -141,9 +200,10 @@ export async function createAction(this: IHookFunctions | IExecuteFunctions, age
                 functionId: EXPORT_TO_N8N_FUNCTION_ID,
                 name: 'Export to n8n',
                 config: {
-                    url: webhookUrl,
+                    hmacSecret,
                     httpMethod: 'POST',
                     nodeId: this.getNode().id,
+                    url: webhookUrl,
                 },
             },
         });
@@ -304,17 +364,17 @@ export async function getDocumentIdOptions(this: ILoadOptionsFunctions): Promise
     return options;
 }
 
-export async function ensureWebhookExists(this: IExecuteFunctions, agentId: string, webhookUrl: string): Promise<boolean> {
+export async function ensureWebhookExists(this: IExecuteFunctions, agentId: string, webhookUrl: string, hmacSecret?: string): Promise<boolean> {
     const action = await getAction.call(this, agentId);
     let exists;
 
     if (action) {
-        exists = await updateAction.call(this, action, webhookUrl);
+        exists = await updateAction.call(this, action, webhookUrl, hmacSecret);
     } else {
         exists = false;
     }
 
     if (exists) return true;
 
-    return await createAction.call(this, agentId, webhookUrl);
+    return await createAction.call(this, agentId, webhookUrl, hmacSecret);
 }

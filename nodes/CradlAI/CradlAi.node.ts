@@ -134,6 +134,28 @@ export class CradlAi implements INodeType {
 				default: '{}',
 				description: 'JSON object containing variables to pass to the agent run',
 			},
+			{
+				displayName: 'Calculate Signature',
+				name: 'calculateSignature',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to calculate HMAC signature for incoming webhooks for security',
+			},
+			{
+				displayName: 'HMAC Secret',
+				name: 'hmacSecret',
+				type: 'string',
+				typeOptions: {
+					password: true,
+				},
+				default: undefined,
+				description: 'The secret used to calculate the HMAC signature',
+				displayOptions: {
+					show: {
+						calculateSignature: [true],
+					},
+				},
+			},
 		],
 	};
 
@@ -166,7 +188,8 @@ export class CradlAi implements INodeType {
 				if (waitForResults) {
 					const resumeUrlVariableName = this.getNodeParameter('resumeUrlVariableName', itemIndex, RESUME_URL_VARIABLE_NAME) as string;
 					const webhookUrl = `$\{${resumeUrlVariableName}}`;
-					const webhookExists = await ensureWebhookExists.call(this, agentId, webhookUrl);
+					const hmacSecret = this.getNodeParameter('hmacSecret', itemIndex) as string | undefined;
+					const webhookExists = await ensureWebhookExists.call(this, agentId, webhookUrl, hmacSecret);
 					if (!webhookExists) {
 						throw new NodeOperationError(this.getNode(), `Failed to ensure webhook exists for agent ${agentId}`, { itemIndex });
 					}
