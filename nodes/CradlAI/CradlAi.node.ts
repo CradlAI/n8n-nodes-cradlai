@@ -1,16 +1,16 @@
 import type {
 	IBinaryData,
 	IExecuteFunctions,
-	ILoadOptionsFunctions,
 	INodeExecutionData,
-	INodePropertyOptions,
 	INodeType,
 	INodeTypeDescription,
 	IWebhookFunctions,
 	IWebhookResponseData,
 } from 'n8n-workflow';
-import { BINARY_ENCODING, NodeConnectionTypes, NodeOperationError, WAIT_INDEFINITELY } from 'n8n-workflow';
+import { NodeConnectionTypes, NodeOperationError, WAIT_INDEFINITELY } from 'n8n-workflow';
 import { cradlApiRequest } from './api';
+import { ensureWebhookExists, getAgentIdOptions, getDocumentIdOptions, handleWebhookResponse } from './common';
+import { CREDENTIALS_NAME, RESUME_URL_VARIABLE_NAME } from './constants';
 
 export class CradlAi implements INodeType {
 	description: INodeTypeDescription = {
@@ -21,7 +21,7 @@ export class CradlAi implements INodeType {
 		version: 1,
  		credentials: [
 			{
-				name: 'cradlAiApi',
+				name: CREDENTIALS_NAME,
 				required: true,
 				displayOptions: {
 					show: {
@@ -73,6 +73,25 @@ export class CradlAi implements INodeType {
 				required: true,
 			},
 			{
+				displayName: 'Wait for Results',
+				name: 'waitForResults',
+				type: 'boolean',
+				default: true,
+				description: 'Whether to wait for the agent run to complete and return the results',
+			},
+			{
+				displayName: 'Resume URL Variable Name',
+				name: 'resumeUrlVariableName',
+				type: 'string',
+				default: RESUME_URL_VARIABLE_NAME,
+				description: 'The name of the variable to pass the resume URL in. Only used if "Wait for Results" is enabled.',
+				displayOptions: {
+					show: {
+						waitForResults: [true],
+					}
+				},
+			},
+			{
 				displayName: 'Use Existing Document',
 				name: 'useExistingDocument',
 				type: 'boolean',
@@ -115,86 +134,18 @@ export class CradlAi implements INodeType {
 				default: '{}',
 				description: 'JSON object containing variables to pass to the agent run',
 			},
-			{
-				displayName: 'Wait for Results',
-				name: 'waitForResults',
-				type: 'boolean',
-				default: true,
-				description: 'Whether to wait for the agent run to complete and return the results',
-			}
 		],
 	};
 
 	methods = {
 		loadOptions: {
-			async getAgentIdOptions(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-				const { agents } = await cradlApiRequest.call(this, { method: 'GET', path: '/agents' });
-				const options: INodePropertyOptions[] = [];
-				
-				if (agents && Array.isArray(agents)) {
-					agents.forEach((agent: { name: string; agentId: string }) => {
-						options.push({
-							name: agent.name || agent.agentId,
-							value: agent.agentId,
-						});
-					});
-				}
-
-				return options;
-			},
-
-			async getDocumentIdOptions(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-				const { documents } = await cradlApiRequest.call(this, { method: 'GET', path: '/documents' });
-				const options: INodePropertyOptions[] = [];
-				
-				if (documents && Array.isArray(documents)) {
-					documents.forEach((document: { name: string; documentId: string }) => {
-						options.push({
-							name: document.name || document.documentId,
-							value: document.documentId,
-						});
-					});
-				}
-
-				return options;
-			},
+			getAgentIdOptions,
+			getDocumentIdOptions,
 		},
 	};
 
 	async webhook(this: IWebhookFunctions): Promise<IWebhookResponseData> {
-		const req = this.getRequestObject();
-
-		/* TODO: Calculate hmac signature and compare with header for security */
-
-		const document = await cradlApiRequest.call(this, {
-			method: 'GET',
-			path: `/documents/${req.body.context.documentId}`,
-		});
-
-		const documentContent = await cradlApiRequest.call(this, {
-			method: 'GET',
-			url: document.fileUrl,
-			encoding: 'arraybuffer',
-		});
-
-		const response: INodeExecutionData = {
-			json: {
-				headers: req.headers,
-				params: req.params,
-				query: req.query,
-				body: req.body,
-			},
-			binary: {
-				document: {
-					data: documentContent.toString(BINARY_ENCODING),
-					fileName: document.name,
-					fileSize: document.contentLength,
-					mimeType: document.contentType,
-				},
-			}
-		};
-
-		return { workflowData: [[response]] };
+		return handleWebhookResponse.call(this);
 	}
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
@@ -207,11 +158,20 @@ export class CradlAi implements INodeType {
 			try {
 				const item = items[itemIndex];
 
-				const agentId = this.getNodeParameter('agentId', itemIndex, '') as string;
+				const agentId = this.getNodeParameter('agentId', itemIndex) as string | undefined;
+				if (!agentId) throw new NodeOperationError(this.getNode(), 'Agent ID is required', { itemIndex });
+
 				const variables = JSON.parse(this.getNodeParameter('variables', itemIndex, '{}') as string);
 
 				if (waitForResults) {
-					variables['n8nResumeUrl'] = { 'value': resumeUrl };
+					const resumeUrlVariableName = this.getNodeParameter('resumeUrlVariableName', itemIndex, RESUME_URL_VARIABLE_NAME) as string;
+					const webhookUrl = `$\{${resumeUrlVariableName}}`;
+					const webhookExists = await ensureWebhookExists.call(this, agentId, webhookUrl);
+					if (!webhookExists) {
+						throw new NodeOperationError(this.getNode(), `Failed to ensure webhook exists for agent ${agentId}`, { itemIndex });
+					}
+
+					variables[resumeUrlVariableName] = { 'value': resumeUrl };
 				}
 
 				const useExistingDocument = this.getNodeParameter('useExistingDocument', itemIndex) as boolean;

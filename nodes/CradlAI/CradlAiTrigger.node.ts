@@ -5,12 +5,9 @@ import {
 	type INodeTypeDescription,
 	type IWebhookResponseData,
 	NodeConnectionTypes,
-	ILoadOptionsFunctions,
-	INodePropertyOptions,
-	INodeExecutionData,
-	BINARY_ENCODING,
 } from 'n8n-workflow';
-import { cradlApiRequest } from './api';
+import { createAction, deleteAction, getAction, getAgentIdOptions, handleWebhookResponse, updateAction } from './common';
+import { CREDENTIALS_NAME } from './constants';
 
 export class CradlAiTrigger implements INodeType {
 	description: INodeTypeDescription = {
@@ -27,7 +24,7 @@ export class CradlAiTrigger implements INodeType {
 		outputs: [NodeConnectionTypes.Main],
  		credentials: [
 			{
-				name: 'cradlAiApi',
+				name: CREDENTIALS_NAME,
 				required: true,
 				displayOptions: {
 					show: {
@@ -74,251 +71,45 @@ export class CradlAiTrigger implements INodeType {
 
 	methods = {
 		loadOptions: {
-			async getAgentIdOptions(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-				const { agents } = await cradlApiRequest.call(this, { method: 'GET', path: '/agents' });
-				const options: INodePropertyOptions[] = [];
-				
-				if (agents && Array.isArray(agents)) {
-					agents.forEach((agent: { name: string; agentId: string }) => {
-						options.push({
-							name: agent.name || agent.agentId,
-							value: agent.agentId,
-						});
-					});
-				}
-
-				return options;
-			},
+			getAgentIdOptions,
 		},
 	};
 
 	webhookMethods = {
 		default: {
 			async checkExists(this: IHookFunctions): Promise<boolean> {
-				const agentId = this.getNodeParameter('agentId') as string;
-				const webhookData = this.getWorkflowStaticData('node');
+				const agentId = this.getNodeParameter('agentId') as string | undefined;
+				if (!agentId) return false;
+
+				const action = await getAction.call(this, agentId);
+				if (!action) return false;
+
 				const webhookUrl = this.getNodeWebhookUrl('default');
+				if (!webhookUrl) return false;
 
-				try {
-					const agent = await cradlApiRequest.call(this, {
-						method: 'GET',
-						path: `/agents/${agentId}`,
-					});
-
-					for (const resourceId of agent.resourceIds ?? []) {
-						if (!resourceId.startsWith('cradl:action:')) {
-							continue;
-						}
-
-						const action = await cradlApiRequest.call(this, {
-							method: 'GET',
-							path: `/actions/${resourceId}`,
-						});
-
-						if (action.functionId !== 'cradl:organization:cradl/cradl:function:export-to-webhook') {
-							continue;
-						}
-
-						if (action.config.url === webhookUrl) {
-							webhookData.actionId = action.actionId;
-							return true;
-						}
-					}
-				} catch { /* empty */ }
-
-				return false;
+				return await updateAction.call(this, action, webhookUrl)
 			},
 
 			async create(this: IHookFunctions): Promise<boolean> {
-				const agentId = this.getNodeParameter('agentId') as string;
-				const webhookData = this.getWorkflowStaticData('node');
+				const agentId = this.getNodeParameter('agentId') as string | undefined;
+				if (!agentId) return false;
+
 				const webhookUrl = this.getNodeWebhookUrl('default');
+				if (!webhookUrl) return false;
 
-				const cleanupFns: (() => Promise<unknown>)[] = [];
-
-				const onCleanup = async () => {
-					/* cleanup in reverse order */
-					for (const fn of [...cleanupFns].reverse()) {
-						try {
-							await fn();
-						} catch { /* empty */ }
-					}
-				};
-
-				try {
-					const action = await cradlApiRequest.call(this, {
-						method: 'POST',
-						path: '/actions',
-						body: {
-							functionId: 'cradl:organization:cradl/cradl:function:export-to-webhook',
-							name: 'Export to n8n',
-							config: {
-								url: webhookUrl,
-								httpMethod: 'POST',
-							},
-						},
-					});
-
-					cleanupFns.push(() => cradlApiRequest.call(this, {
-						method: 'DELETE',
-						path: `/actions/${action.actionId}`,
-					}));
-
-					const reviewHook = await cradlApiRequest.call(this, {
-						method: 'POST',
-						path: '/hooks',
-						body: {
-							config: {},
-							trigger: 'ValidationTask has Completed',
-							trueActionId: action.actionId,
-						},
-					});
-
-					cleanupFns.push(() => cradlApiRequest.call(this, {
-						method: 'DELETE',
-						path: `/hooks/${reviewHook.hookId}`,
-					}));
-
-					const autoHook = await cradlApiRequest.call(this, {
-						method: 'POST',
-						path: '/hooks',
-						body: {
-							functionId: 'cradl:organization:cradl/cradl:function:hook-evaluate-prediction',
-							config: {},
-							trigger: 'Prediction is Created',
-							trueActionId: action.actionId,
-						},
-					});
-
-					cleanupFns.push(() => cradlApiRequest.call(this, {
-						method: 'DELETE',
-						path: `/hooks/${autoHook.hookId}`,
-					}));
-
-					const agent = await cradlApiRequest.call(this, {
-						method: 'GET',
-						path: `/agents/${agentId}`,
-					});
-
-					await cradlApiRequest.call(this, {
-						method: 'PATCH',
-						path: `/agents/${agentId}`,
-						body: {
-							resourceIds: [...agent.resourceIds, action.actionId, reviewHook.hookId, autoHook.hookId],
-						},
-					});
-
-					webhookData.actionId = action.actionId as string;
-					return true;
-				} catch {
-					await onCleanup();
-				}
-
-				return false;
+				return await createAction.call(this, agentId, webhookUrl);
 			},
 
 			async delete(this: IHookFunctions): Promise<boolean> {
-				const agentId = this.getNodeParameter('agentId') as string;
-				const webhookData = this.getWorkflowStaticData('node');
+				const agentId = this.getNodeParameter('agentId') as string | undefined;
+				if (!agentId) return false;
 
-				if (webhookData.actionId !== undefined) {
-					try {
-						const { hooks } = await cradlApiRequest.call(this, { method: 'GET', path: '/hooks' });
-						const deletedHookIds = [];
-
-						for (const hook of hooks) {
-							const updates: { trueActionId?: string | null; falseActionId?: string | null } = {};
-
-							if (hook.trueActionId === webhookData.actionId) {
-								updates.trueActionId = null;
-							}
-
-							if (hook.falseActionId === webhookData.actionId) {
-								updates.falseActionId = null;
-							}
-
-							if (Object.keys(updates).length > 0) {
-								const afterUpdate = { ...hook, ...updates };
-
-								/* Delete the hook if it no longer has any actions */
-								if ([afterUpdate.trueActionId, afterUpdate.falseActionId].every((id) => id == null)) {
-									await cradlApiRequest.call(this, {
-										method: 'DELETE',
-										path: `/hooks/${hook.hookId}`,
-									});
-									deletedHookIds.push(hook.hookId);
-								} else {
-									await cradlApiRequest.call(this, {
-										method: 'PATCH',
-										path: `/hooks/${hook.hookId}`,
-										body: updates,
-									});
-								}
-							}
-						}
-
-						await cradlApiRequest.call(this, {
-							method: 'DELETE',
-							path: `/actions/${webhookData.actionId}`,
-						});
-
-						const agent = await cradlApiRequest.call(this, {
-							method: 'GET',
-							path: `/agents/${agentId}`,
-						});
-
-						await cradlApiRequest.call(this, {
-							method: 'PATCH',
-							path: `/agents/${agentId}`,
-							body: {
-								resourceIds: [...agent.resourceIds].filter((id: string) => id !== webhookData.actionId),
-							},
-						});
-
-						delete webhookData.actionId;
-					} catch {
-						return false;
-					}
-				}
-
-				return true;
+				return await deleteAction.call(this, agentId);
 			},
 		},
 	};
 
 	async webhook(this: IWebhookFunctions): Promise<IWebhookResponseData> {
-		const req = this.getRequestObject();
-
-		/* TODO: Calculate hmac signature and compare with header for security */
-
-		const document = await cradlApiRequest.call(this, {
-			method: 'GET',
-			path: `/documents/${req.body.context.documentId}`,
-		});
-
-		const documentContent = await cradlApiRequest.call(this, {
-			method: 'GET',
-			url: document.fileUrl,
-			encoding: 'arraybuffer',
-		});
-
-		const response: INodeExecutionData = {
-			json: {
-				headers: req.headers,
-				params: req.params,
-				query: req.query,
-				body: req.body,
-			},
-			binary: {
-				document: {
-					data: documentContent.toString(BINARY_ENCODING),
-					fileName: document.name,
-					fileSize: document.contentLength,
-					mimeType: document.contentType,
-				},
-			}
-		};
-
-		return { workflowData: [[response]] };
+		return handleWebhookResponse.call(this);
 	}
 }

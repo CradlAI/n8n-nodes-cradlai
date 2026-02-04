@@ -7,6 +7,7 @@ import {
     ILoadOptionsFunctions,
     IWebhookFunctions
 } from "n8n-workflow";
+import { CREDENTIALS_NAME, API_BASE_URL } from "./constants";
 
 export type CradlApiRequest = {
     method: IHttpRequestMethods;
@@ -25,14 +26,15 @@ export async function cradlApiRequest(this: IExecuteFunctions | ILoadOptionsFunc
     qs,
     encoding
 }: CradlApiRequest) {
+    const credentials = await this.getCredentials(CREDENTIALS_NAME);
     const options: IHttpRequestOptions = {
         method,
-        url: url ?? `https://api.cradl.ai/v1${path}`,
+        url: url ?? `${credentials.apiBaseUrl ?? API_BASE_URL}${path}`,
         headers: encoding ? undefined : { 'Content-Type': 'application/json' },
         body,
         qs,
         encoding,
     };
 
-    return this.helpers.httpRequestWithAuthentication.call(this, 'cradlAiApi', options);
+    return this.helpers.httpRequestWithAuthentication.call(this, CREDENTIALS_NAME, options);
 };
