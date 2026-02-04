@@ -1,6 +1,14 @@
-import axios from 'axios';
+import type {
+	IAuthenticateGeneric,
+	ICredentialDataDecryptedObject,
+	ICredentialTestRequest,
+	ICredentialType,
+	IHttpRequestHelper,
+	INodeProperties,
+} from 'n8n-workflow';
 
-import type { ICredentialDataDecryptedObject, ICredentialTestRequest, ICredentialType, IHttpRequestOptions, INodeProperties } from 'n8n-workflow';
+const DEFAULT_API_BASE_URL = 'https://api.cradl.ai/v1';
+const DEFAULT_ACCESS_TOKEN_URL = 'https://auth.cradl.ai/oauth2/token';
 
 export class CradlAiApi implements ICredentialType {
 	name = 'cradlAiApi';
@@ -13,34 +21,14 @@ export class CradlAiApi implements ICredentialType {
 
 	properties: INodeProperties[] = [
 		{
-			displayName: 'Grant Type',
-			name: 'grantType',
+			displayName: 'Session Token',
+			name: 'sessionToken',
 			type: 'hidden',
-			default: 'client_credentials',
-            options: [
-                {
-                    name: 'Client Credentials',
-                    value: 'client_credentials',
-                },
-            ],
-		},
-		{
-			displayName: 'Access Token URL',
-			name: 'accessTokenUrl',
-			type: 'hidden',
-			default: 'https://auth.cradl.ai/oauth2/token',
-		},
-		{
-			displayName: 'Audience',
-			name: 'audience',
-			type: 'hidden',
-			default: 'https%3A%2F%2Fapi.cradl.ai%2Fv1',
-		},
-		{
-			displayName: 'Authentication',
-			name: 'authentication',
-			type: 'hidden',
-			default: 'header',
+			typeOptions: {
+				expirable: true,
+				password: true,
+			},
+			default: '',
 		},
 		{
 			displayName: 'Client ID',
@@ -59,23 +47,66 @@ export class CradlAiApi implements ICredentialType {
 			default: '',
 			required: true,
 		},
+		{
+			displayName: 'Show Advanced Options',
+			name: 'showAdvancedOptions',
+			type: 'boolean',
+			default: false,
+		},
+		{
+			displayName: 'API Base URL',
+			name: 'apiBaseUrl',
+			type: 'string',
+			default: DEFAULT_API_BASE_URL,
+			displayOptions: {
+				show: {
+					showAdvancedOptions: [true],
+				},
+			},
+		},
+		{
+			displayName: 'Access Token URL',
+			name: 'accessTokenUrl',
+			type: 'string',
+			default: DEFAULT_ACCESS_TOKEN_URL,
+			displayOptions: {
+				show: {
+					showAdvancedOptions: [true],
+				},
+			},
+		},
 	];
 
-	async authenticate(credentials: ICredentialDataDecryptedObject, requestOptions: IHttpRequestOptions): Promise<IHttpRequestOptions> {
-		const auth = await axios.post(credentials.accessTokenUrl as string, 
-			`client_id=${credentials.clientId}&client_secret=${credentials.clientSecret}&audience=${credentials.audience}&grant_type=${credentials.grantType}`,
-			{ headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-		);
-
-		requestOptions.headers ??= {};
-		requestOptions.headers['Authorization'] = `Bearer ${auth.data.access_token}`;
-		return requestOptions;
+	async preAuthentication(this: IHttpRequestHelper, credentials: ICredentialDataDecryptedObject) {
+		const { access_token } = (await this.helpers.httpRequest({
+			method: 'POST',
+			url: (credentials.accessTokenUrl as string | undefined) ?? DEFAULT_ACCESS_TOKEN_URL,
+			body: {
+				client_id: credentials.clientId,
+				client_secret: credentials.clientSecret,
+				audience: DEFAULT_API_BASE_URL,
+				grant_type: 'client_credentials',
+			},
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded',
+			},
+		})) as { access_token: string };
+		return { sessionToken: access_token };
 	}
+
+	authenticate: IAuthenticateGeneric = {
+		type: 'generic',
+		properties: {
+			headers: {
+				Authorization: '=Bearer {{ $credentials.sessionToken }}',
+			},
+		},
+	};
 
 	test: ICredentialTestRequest = {
 		request: {
 			method: 'GET',
-			baseURL: 'https://api.cradl.ai/v1',
+			baseURL: '={{ $credentials.apiBaseUrl ?? "https://api.cradl.ai/v1" }}',
 			url: '/organizations/me',
 		},
 	};
