@@ -1,267 +1,285 @@
 import type {
-	IBinaryData,
-	IExecuteFunctions,
-	INodeExecutionData,
-	INodeType,
-	INodeTypeDescription,
-	IWebhookFunctions,
-	IWebhookResponseData,
+  IBinaryData,
+  IExecuteFunctions,
+  INodeExecutionData,
+  INodeType,
+  INodeTypeDescription,
+  IWebhookFunctions,
+  IWebhookResponseData,
 } from 'n8n-workflow';
 import { NodeConnectionTypes, NodeOperationError, WAIT_INDEFINITELY } from 'n8n-workflow';
 import { cradlApiRequest } from './api';
 import { ensureWebhookExists, getAgentIdOptions, getDocumentIdOptions, handleWebhookResponse } from './common';
-import { CREDENTIALS_NAME, RESUME_URL_VARIABLE_NAME } from './constants';
+import {
+  CREDENTIALS_NAME,
+  DEFAULT_VALUE_CALCULATE_SIGNATURE,
+  DEFAULT_VALUE_RESUME_URL_VARIABLE_NAME,
+  DEFAULT_VALUE_USE_EXISTING_DOCUMENT,
+  DEFAULT_VALUE_VARIABLES,
+  DEFAULT_VALUE_WAIT_FOR_RESULTS,
+  PROPERTY_NAME_AGENT_ID,
+  PROPERTY_NAME_CALCULATE_SIGNATURE,
+  PROPERTY_NAME_DOCUMENT_BINARY_DATA,
+  PROPERTY_NAME_DOCUMENT_ID,
+  PROPERTY_NAME_HMAC_SECRET,
+  PROPERTY_NAME_RESUME_URL_VARIABLE_NAME,
+  PROPERTY_NAME_USE_EXISTING_DOCUMENT,
+  PROPERTY_NAME_VARIABLES,
+  PROPERTY_NAME_WAIT_FOR_RESULTS,
+  WEBHOOK_NAME,
+} from './constants';
 
 export class CradlAi implements INodeType {
-	description: INodeTypeDescription = {
-		displayName: 'Cradl AI',
-		name: 'cradlAi',
-		icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
-		group: ['transform'],
-		version: 1,
- 		credentials: [
-			{
-				name: CREDENTIALS_NAME,
-				required: true,
-				displayOptions: {
-					show: {
-						authentication: ['oAuth2'],
-					},
-				},
-			}
-		],
-		waitingNodeTooltip: `=Execution will continue when webhook is received on {{ $execution.resumeUrl }}`,
-		webhooks: [
-			{
-				name: 'default',
-				httpMethod: 'POST',
-				responseMode: 'onReceived',
-				path: 'webhook',
-				restartWebhook: true,
-				isFullPath: true,
-			},
-		],
-		description: 'Extract data reliably from any document',
-		defaults: {
-			name: 'Cradl AI',
-		},
-		inputs: [NodeConnectionTypes.Main],
-		outputs: [NodeConnectionTypes.Main],
-		usableAsTool: true,
-		properties: [
-			{
-				displayName: 'Authentication',
-				name: 'authentication',
-				type: 'options',
-				options: [
-					{
-						name: 'OAuth2',
-						value: 'oAuth2',
-					},
-				],
-				default: 'oAuth2',
-			},
-			{
-				displayName: 'Agent Name or ID',
-				name: 'agentId',
-				type: 'options',
-				typeOptions: {
-					loadOptionsMethod: 'getAgentIdOptions',
-				},
-				default: '',
-				description: 'Select a value from the API. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-				required: true,
-			},
-			{
-				displayName: 'Wait for Results',
-				name: 'waitForResults',
-				type: 'boolean',
-				default: true,
-				description: 'Whether to wait for the agent run to complete and return the results',
-			},
-			{
-				displayName: 'Resume URL Variable Name',
-				name: 'resumeUrlVariableName',
-				type: 'string',
-				default: RESUME_URL_VARIABLE_NAME,
-				description: 'The name of the variable to pass the resume URL in. Only used if "Wait for Results" is enabled.',
-				displayOptions: {
-					show: {
-						waitForResults: [true],
-					}
-				},
-			},
-			{
-				displayName: 'Use Existing Document',
-				name: 'useExistingDocument',
-				type: 'boolean',
-				default: false,
-				description: 'Whether to use an existing document or create a new one',
-			},
-			{
-				displayName: 'Document Name or ID',
-				name: 'documentId',
-				type: 'options',
-				typeOptions: {
-					loadOptionsMethod: 'getDocumentIdOptions',
-				},
-				displayOptions: {
-					show: {
-						useExistingDocument: [true],
-					}
-				},
-				default: '',
-				description: 'Select a value from the API. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-				required: true,
-			},
-			{
-				displayName: 'Binary Property Name',
-				name: 'binaryPropertyName',
-				type: 'string',
-				displayOptions: {
-					show: {
-						useExistingDocument: [false],
-					}
-				},
-				default: '',
-				description: 'The binary property name of the document to process',
-				required: true,
-			},
-			{
-				displayName: 'Variables',
-				name: 'variables',
-				type: 'json',
-				default: '{}',
-				description: 'JSON object containing variables to pass to the agent run',
-			},
-			{
-				displayName: 'Calculate Signature',
-				name: 'calculateSignature',
-				type: 'boolean',
-				default: false,
-				description: 'Whether to calculate HMAC signature for incoming webhooks for security',
-			},
-			{
-				displayName: 'HMAC Secret',
-				name: 'hmacSecret',
-				type: 'string',
-				typeOptions: {
-					password: true,
-				},
-				default: undefined,
-				description: 'The secret used to calculate the HMAC signature',
-				displayOptions: {
-					show: {
-						calculateSignature: [true],
-					},
-				},
-			},
-		],
-	};
+  description: INodeTypeDescription = {
+    displayName: 'Cradl AI',
+    name: 'cradlAi',
+    icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
+    group: ['transform'],
+    version: 1,
+    credentials: [
+      {
+        name: CREDENTIALS_NAME,
+        required: true,
+      }
+    ],
+    waitingNodeTooltip: `=Execution will continue when webhook is received on {{ $execution.resumeUrl }}`,
+    webhooks: [
+      {
+        name: WEBHOOK_NAME,
+        httpMethod: 'POST',
+        responseMode: 'onReceived',
+        path: 'webhook',
+        restartWebhook: true,
+        isFullPath: true,
+      },
+    ],
+    description: 'Extract data reliably from any document',
+    defaults: {
+      name: 'Cradl AI',
+    },
+    inputs: [NodeConnectionTypes.Main],
+    outputs: [NodeConnectionTypes.Main],
+    usableAsTool: true,
+    properties: [
+      {
+        displayName: 'Agent Name or ID',
+        name: PROPERTY_NAME_AGENT_ID,
+        type: 'options',
+        typeOptions: {
+          loadOptionsMethod: 'getAgentIdOptions',
+        },
+        default: '',
+        description: 'Select a value from the API. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+        required: true,
+      },
+      {
+        displayName: 'Wait for Results',
+        name: PROPERTY_NAME_WAIT_FOR_RESULTS,
+        type: 'boolean',
+        // eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-boolean
+        default: DEFAULT_VALUE_WAIT_FOR_RESULTS,
+        description: 'Whether to wait for the agent run to complete and return the results',
+      },
+      {
+        displayName: 'Resume URL Variable Name',
+        name: PROPERTY_NAME_RESUME_URL_VARIABLE_NAME,
+        type: 'string',
+        default: DEFAULT_VALUE_RESUME_URL_VARIABLE_NAME,
+        description: 'The name of the variable to pass the resume URL in. Only used if "Wait for Results" is enabled.',
+        displayOptions: {
+          show: {
+            waitForResults: [true],
+          }
+        },
+      },
+      {
+        displayName: 'Use Existing Document',
+        name: PROPERTY_NAME_USE_EXISTING_DOCUMENT,
+        type: 'boolean',
+        // eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-boolean
+        default: DEFAULT_VALUE_USE_EXISTING_DOCUMENT,
+        description: 'Whether to use an existing document or create a new one',
+      },
+      {
+        displayName: 'Document Name or ID',
+        name: PROPERTY_NAME_DOCUMENT_ID,
+        type: 'options',
+        typeOptions: {
+          loadOptionsMethod: 'getDocumentIdOptions',
+        },
+        displayOptions: {
+          show: {
+            useExistingDocument: [true],
+          }
+        },
+        default: '',
+        description: 'Select a value from the API. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+        required: true,
+      },
+      {
+        displayName: 'Document Binary Data',
+        name: PROPERTY_NAME_DOCUMENT_BINARY_DATA,
+        type: 'string',
+        displayOptions: {
+          show: {
+            useExistingDocument: [false],
+          }
+        },
+        default: '',
+        description: 'The binary property name of the document to process',
+        required: true,
+      },
+      {
+        displayName: 'Variables',
+        name: PROPERTY_NAME_VARIABLES,
+        type: 'json',
+        default: DEFAULT_VALUE_VARIABLES,
+        description: 'JSON object containing variables to pass to the agent run',
+      },
+      {
+        displayName: 'Calculate Signature',
+        name: PROPERTY_NAME_CALCULATE_SIGNATURE,
+        type: 'boolean',
+        // eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-boolean
+        default: DEFAULT_VALUE_CALCULATE_SIGNATURE,
+        description: 'Whether to calculate HMAC signature for incoming webhooks for additional security',
+      },
+      {
+        displayName: 'HMAC Secret',
+        name: PROPERTY_NAME_HMAC_SECRET,
+        type: 'string',
+        typeOptions: {
+          password: true,
+        },
+        default: undefined,
+        description: 'The secret used to calculate the HMAC signature',
+        displayOptions: {
+          show: {
+            calculateSignature: [true],
+          },
+        },
+      },
+    ],
+  };
 
-	methods = {
-		loadOptions: {
-			getAgentIdOptions,
-			getDocumentIdOptions,
-		},
-	};
+  methods = {
+    loadOptions: {
+      getAgentIdOptions,
+      getDocumentIdOptions,
+    },
+  };
 
-	async webhook(this: IWebhookFunctions): Promise<IWebhookResponseData> {
-		return handleWebhookResponse.call(this);
-	}
+  async webhook(this: IWebhookFunctions): Promise<IWebhookResponseData> {
+    return handleWebhookResponse(this);
+  }
 
-	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
-		const resumeUrl = this.evaluateExpression('{{ $execution.resumeUrl }}', 0) as string;
-		const waitForResults = this.getNodeParameter('waitForResults', 0, true) as boolean;
+  async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
+    const waitForResults = this.getNodeParameter(PROPERTY_NAME_WAIT_FOR_RESULTS, 0, DEFAULT_VALUE_WAIT_FOR_RESULTS) as boolean;
+    const items = this.getInputData();
 
-		const items = this.getInputData();
+    for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
+      const getParam = <T>(name: string, defaultValue?: T) => {
+        const param = this.getNodeParameter(name, itemIndex, defaultValue);
 
-		for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
-			try {
-				const item = items[itemIndex];
+        if (param == null || param === '') {
+          throw new NodeOperationError(this.getNode(), `Parameter "${name}" is required`, { itemIndex });
+        }
 
-				const agentId = this.getNodeParameter('agentId', itemIndex) as string | undefined;
-				if (!agentId) throw new NodeOperationError(this.getNode(), 'Agent ID is required', { itemIndex });
+        return param as T;
+      };
 
-				const variables = JSON.parse(this.getNodeParameter('variables', itemIndex, '{}') as string);
+      const item = items[itemIndex];
 
-				if (waitForResults) {
-					const resumeUrlVariableName = this.getNodeParameter('resumeUrlVariableName', itemIndex, RESUME_URL_VARIABLE_NAME) as string;
-					const webhookUrl = `$\{${resumeUrlVariableName}}`;
-					const hmacSecret = this.getNodeParameter('hmacSecret', itemIndex) as string | undefined;
-					const webhookExists = await ensureWebhookExists.call(this, agentId, webhookUrl, hmacSecret);
-					if (!webhookExists) {
-						throw new NodeOperationError(this.getNode(), `Failed to ensure webhook exists for agent ${agentId}`, { itemIndex });
-					}
+      try {
+        const agentId = getParam<string>(PROPERTY_NAME_AGENT_ID);
+        const variables = JSON.parse(getParam<string>(PROPERTY_NAME_VARIABLES, DEFAULT_VALUE_VARIABLES));
 
-					variables[resumeUrlVariableName] = { 'value': resumeUrl };
-				}
+        if (waitForResults) {
+          const calculateSignature = getParam(PROPERTY_NAME_CALCULATE_SIGNATURE, DEFAULT_VALUE_CALCULATE_SIGNATURE);
+          let hmacSecret;
+          if (calculateSignature) {
+            hmacSecret = getParam<string>(PROPERTY_NAME_HMAC_SECRET);
+          } else {
+            hmacSecret = undefined;
+          }
 
-				const useExistingDocument = this.getNodeParameter('useExistingDocument', itemIndex) as boolean;
-				let documentContent;
-				let documentFileName;
+          const resumeUrlVariableName = getParam(PROPERTY_NAME_RESUME_URL_VARIABLE_NAME, DEFAULT_VALUE_RESUME_URL_VARIABLE_NAME);
+          const webhookUrl = `$\{${resumeUrlVariableName}}`;
 
-				if (useExistingDocument) {
-					const documentId = this.getNodeParameter('documentId', itemIndex, '') as string;
+          await ensureWebhookExists(this, agentId, webhookUrl, hmacSecret);
 
-					const document = await cradlApiRequest.call(this, {
-						method: 'GET',
-						path: `/documents/${documentId}`
-					});
+          const resumeUrl = this.evaluateExpression('{{ $execution.resumeUrl }}', itemIndex) as string;
+          if (!resumeUrl) {
+            throw new NodeOperationError(this.getNode(), 'Failed to get resume URL for execution', { itemIndex });
+          }
+          variables[resumeUrlVariableName] = { 'value': resumeUrl };
+        }
 
-					documentContent = await cradlApiRequest.call(this, {
-						method: 'GET',
-						url: document.fileUrl,
-						encoding: 'arraybuffer'
-					});
-					documentFileName = document.name;
-				} else {
-					const binaryPropertyName = this.getNodeParameter('binaryPropertyName', itemIndex) as string;
-					const binary = this.evaluateExpression('{{ $binary }}', itemIndex) as {[key: string]: IBinaryData};
-					documentContent = await this.helpers.getBinaryDataBuffer(itemIndex, binaryPropertyName);
-					documentFileName = binary[binaryPropertyName].fileName;
-				}
+        const useExistingDocument = getParam(PROPERTY_NAME_USE_EXISTING_DOCUMENT, DEFAULT_VALUE_USE_EXISTING_DOCUMENT);
+        let documentContent;
+        let documentFileName;
 
-				const run = await cradlApiRequest.call(this, {
-					method: 'POST',
-					path: `/agents/${agentId}/runs`,
-					body: { variables }
-				});
+        if (useExistingDocument) {
+          const documentId = getParam<string>(PROPERTY_NAME_DOCUMENT_ID);
 
-				const newDocument = await cradlApiRequest.call(this, {
-					method: 'POST',
-					path: `/documents`,
-					body: { name: documentFileName, agentRunId: run.id }
-				});
+          const document = await cradlApiRequest(this, {
+            method: 'GET',
+            path: `/documents/${documentId}`
+          });
 
-				await cradlApiRequest.call(this, {
-					method: 'PUT',
-					url: newDocument.fileUrl,
-					body: documentContent,
-					encoding: 'arraybuffer'
-				});
+          documentContent = await cradlApiRequest(this, {
+            method: 'GET',
+            url: document.fileUrl,
+            encoding: 'arraybuffer'
+          });
+          documentFileName = document.name;
+        } else {
+          const binaryPropertyName = getParam<string>(PROPERTY_NAME_DOCUMENT_BINARY_DATA);
+          documentContent = await this.helpers.getBinaryDataBuffer(itemIndex, binaryPropertyName);
+          const binary = this.evaluateExpression('{{ $binary }}', itemIndex) as { [key: string]: IBinaryData };
+          documentFileName = binary[binaryPropertyName].fileName;
+        }
 
-				item.json.run = run;
-			} catch (error) {
-				if (this.continueOnFail()) {
-					items.push({ json: this.getInputData(itemIndex)[0].json, error, pairedItem: itemIndex });
-				} else {
-					if (error.context) {
-						error.context.itemIndex = itemIndex;
-						throw error;
-					}
-					throw new NodeOperationError(this.getNode(), error, {
-						itemIndex,
-					});
-				}
-			}
-		}
+        const run = await cradlApiRequest(this, {
+          method: 'POST',
+          path: `/agents/${agentId}/runs`,
+          body: { variables }
+        });
 
-		if (waitForResults) {
-			await this.putExecutionToWait(WAIT_INDEFINITELY);
-			return [this.getInputData()];
-		} else {
-			return [items];
-		}
-	}
+        const newDocument = await cradlApiRequest(this, {
+          method: 'POST',
+          path: `/documents`,
+          body: { name: documentFileName, agentRunId: run.id }
+        });
+
+        await cradlApiRequest(this, {
+          method: 'PUT',
+          url: newDocument.fileUrl,
+          body: documentContent,
+          encoding: 'arraybuffer'
+        });
+
+        item.json.run = run;
+      } catch (error) {
+        if (this.continueOnFail()) {
+          items.push({ json: this.getInputData(itemIndex)[0].json, error, pairedItem: itemIndex });
+        } else {
+          if (error.context) {
+            error.context.itemIndex = itemIndex;
+            throw error;
+          }
+          throw new NodeOperationError(this.getNode(), error, {
+            itemIndex,
+          });
+        }
+      }
+    }
+
+    if (waitForResults) {
+      await this.putExecutionToWait(WAIT_INDEFINITELY);
+      return [this.getInputData()];
+    } else {
+      return [items];
+    }
+  }
 }
