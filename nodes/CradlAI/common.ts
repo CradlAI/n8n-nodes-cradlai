@@ -13,6 +13,7 @@ import {
 import { createHmac } from 'crypto';
 import { cradlApiRequest } from './api';
 import {
+  CREDENTIALS_NAME,
   DEFAULT_VALUE_CALCULATE_SIGNATURE,
   EVALUATE_PREDICTION_FUNCTION_ID,
   EXPORT_TO_N8N_FUNCTION_ID,
@@ -61,8 +62,8 @@ export const verifySignature = async (context: IWebhookFunctions) => {
 
   parts.push(req.rawBody.toString());
 
-  const data = context.getWorkflowStaticData('node');
-  const hmacSecret = getParam(context, PROPERTY_NAME_HMAC_SECRET, data.actionId as string | undefined);
+  const credentials = await context.getCredentials(CREDENTIALS_NAME);
+  const hmacSecret = getParam(context, PROPERTY_NAME_HMAC_SECRET, credentials.clientSecret as string | undefined);
   const calculatedSignature = createHmac('sha256', hmacSecret).update(parts.join('')).digest('hex');
 
   const signature = getHeader('x-cradl-signature');

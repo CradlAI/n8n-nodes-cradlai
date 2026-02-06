@@ -48,7 +48,7 @@ export class CradlAi implements INodeType {
         name: WEBHOOK_NAME,
         httpMethod: 'POST',
         responseMode: 'onReceived',
-        path: 'webhook',
+        path: '',
         restartWebhook: true,
         isFullPath: true,
       },
@@ -71,26 +71,6 @@ export class CradlAi implements INodeType {
         default: '',
         description: 'Select a value from the API. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
         required: true,
-      },
-      {
-        displayName: 'Wait for Results',
-        name: PROPERTY_NAME_WAIT_FOR_RESULTS,
-        type: 'boolean',
-        // eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-boolean
-        default: DEFAULT_VALUE_WAIT_FOR_RESULTS,
-        description: 'Whether to wait for the agent run to complete and return the results',
-      },
-      {
-        displayName: 'Resume URL Variable Name',
-        name: PROPERTY_NAME_RESUME_URL_VARIABLE_NAME,
-        type: 'string',
-        default: DEFAULT_VALUE_RESUME_URL_VARIABLE_NAME,
-        description: 'The name of the variable to pass the resume URL in. Only used if "Wait for Results" is enabled.',
-        displayOptions: {
-          show: {
-            waitForResults: [true],
-          }
-        },
       },
       {
         displayName: 'Use Existing Document',
@@ -130,11 +110,43 @@ export class CradlAi implements INodeType {
         required: true,
       },
       {
+        displayName: 'Wait for Results',
+        name: PROPERTY_NAME_WAIT_FOR_RESULTS,
+        type: 'boolean',
+        // eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-boolean
+        default: DEFAULT_VALUE_WAIT_FOR_RESULTS,
+        description: 'Whether to wait for the agent run to complete and return the results',
+      },
+      {
+        displayName: 'Show Advanced Options',
+        name: 'showAdvancedOptions',
+        type: 'boolean',
+        default: false,
+      },
+      {
+        displayName: 'Resume URL Variable Name',
+        name: PROPERTY_NAME_RESUME_URL_VARIABLE_NAME,
+        type: 'string',
+        default: DEFAULT_VALUE_RESUME_URL_VARIABLE_NAME,
+        description: 'The name of the variable to pass the resume URL in. Only used if "Wait for Results" is enabled.',
+        displayOptions: {
+          show: {
+            waitForResults: [true],
+            showAdvancedOptions: [true],
+          }
+        },
+      },
+      {
         displayName: 'Variables',
         name: PROPERTY_NAME_VARIABLES,
         type: 'json',
         default: DEFAULT_VALUE_VARIABLES,
         description: 'JSON object containing variables to pass to the agent run',
+        displayOptions: {
+          show: {
+            showAdvancedOptions: [true],
+          }
+        },
       },
       {
         displayName: 'Calculate Signature',
@@ -143,6 +155,11 @@ export class CradlAi implements INodeType {
         // eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-boolean
         default: DEFAULT_VALUE_CALCULATE_SIGNATURE,
         description: 'Whether to calculate HMAC signature for incoming webhooks for additional security',
+        displayOptions: {
+          show: {
+            showAdvancedOptions: [true],
+          }
+        },
       },
       {
         displayName: 'HMAC Secret',
@@ -156,6 +173,7 @@ export class CradlAi implements INodeType {
         displayOptions: {
           show: {
             calculateSignature: [true],
+            showAdvancedOptions: [true],
           },
         },
       },
