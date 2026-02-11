@@ -94,12 +94,12 @@ const versionDescription: Omit<INodeTypeDescription, 'displayName' | 'name' | 'd
 export class CradlAiTriggerV1 implements INodeType {
   description: INodeTypeDescription;
 
-	constructor(baseDescription: INodeTypeBaseDescription) {
-		this.description = {
-			...baseDescription,
-			...versionDescription,
-		};
-	}
+  constructor(baseDescription: INodeTypeBaseDescription) {
+    this.description = {
+      ...baseDescription,
+      ...versionDescription,
+    };
+  }
 
   methods = {
     loadOptions: {
