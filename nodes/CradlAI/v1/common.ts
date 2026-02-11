@@ -11,15 +11,9 @@ import {
   NodeOperationError,
 } from 'n8n-workflow';
 import { createHmac } from 'crypto';
-import { cradlApiRequest } from './api';
-import {
-  CREDENTIALS_NAME,
-  DEFAULT_VALUE_CALCULATE_SIGNATURE,
-  EVALUATE_PREDICTION_FUNCTION_ID,
-  EXPORT_TO_N8N_FUNCTION_ID,
-  PROPERTY_NAME_CALCULATE_SIGNATURE,
-  PROPERTY_NAME_HMAC_SECRET,
-} from './constants';
+import { cradlApiRequest } from '../common/api';
+import { CREDENTIALS_NAME, EVALUATE_PREDICTION_FUNCTION_ID, EXPORT_TO_N8N_FUNCTION_ID } from '../common/constants';
+import { DEFAULT_VALUE_CALCULATE_SIGNATURE, PROPERTY_NAME_CALCULATE_SIGNATURE, PROPERTY_NAME_HMAC_SECRET } from './constants';
 
 export type Action = {
   actionId: string;

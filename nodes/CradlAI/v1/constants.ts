@@ -1,7 +1,3 @@
-export const CRADL_ORGANIZATION_ID = 'cradl:organization:cradl';
-export const CREDENTIALS_NAME = 'cradlAiApi';
-export const EVALUATE_PREDICTION_FUNCTION_ID = `${CRADL_ORGANIZATION_ID}/cradl:function:hook-evaluate-prediction`;
-export const EXPORT_TO_N8N_FUNCTION_ID = `${CRADL_ORGANIZATION_ID}/cradl:function:export-to-n8n`;
 export const WEBHOOK_NAME = 'default';
 
 /* Property names */
@@ -16,7 +12,6 @@ export const PROPERTY_NAME_VARIABLES = 'variables';
 export const PROPERTY_NAME_WAIT_FOR_RESULTS = 'waitForResults';
 
 /* Default values */
-export const DEFAULT_VALUE_API_BASE_URL = 'https://api.cradl.ai/v1';
 export const DEFAULT_VALUE_CALCULATE_SIGNATURE = false;
 export const DEFAULT_VALUE_RESUME_URL_VARIABLE_NAME = 'n8nResumeUrl';
 export const DEFAULT_VALUE_USE_EXISTING_DOCUMENT = false;
