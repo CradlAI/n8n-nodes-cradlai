@@ -53,7 +53,6 @@ const versionDescription: Omit<INodeTypeDescription, 'displayName' | 'name' | 'd
       isFullPath: true,
     },
   ],
-
   properties: [
     {
       displayName: 'Operation',
