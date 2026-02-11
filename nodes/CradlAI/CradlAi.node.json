@@ -1,5 +1,5 @@
 {
-	"node": "@cradl/n8n-nodes-cradlai",
+	"node": "n8n-nodes-cradlai",
 	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
 	"categories": [
