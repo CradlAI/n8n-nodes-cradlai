@@ -9,7 +9,7 @@ import type {
 } from 'n8n-workflow';
 import { NodeConnectionTypes, NodeOperationError, WAIT_INDEFINITELY } from 'n8n-workflow';
 import { cradlApiRequest } from './api';
-import { ensureWebhookExists, getAgentIdOptions, getDocumentIdOptions, handleWebhookResponse } from './common';
+import { deleteAction, ensureWebhookExists, getAgentIdOptions, getDocumentIdOptions, handleWebhookResponse } from './common';
 import {
   CREDENTIALS_NAME,
   DEFAULT_VALUE_CALCULATE_SIGNATURE,
@@ -33,6 +33,7 @@ export class CradlAi implements INodeType {
   description: INodeTypeDescription = {
     displayName: 'Cradl AI',
     name: 'cradlAi',
+    description: 'Extract data reliably from any document',
     icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
     group: ['transform'],
     version: 1,
@@ -53,7 +54,6 @@ export class CradlAi implements INodeType {
         isFullPath: true,
       },
     ],
-    description: 'Extract data reliably from any document',
     defaults: {
       name: 'Cradl AI',
     },
@@ -61,6 +61,21 @@ export class CradlAi implements INodeType {
     outputs: [NodeConnectionTypes.Main],
     usableAsTool: true,
     properties: [
+      {
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				options: [
+					{
+						name: 'Parse Document with HITL',
+						value: 'parseDocumentWithHITL',
+						description: 'Import a binary file into Cradl AI and extract structured data, with human review if confidence is low',
+						action: 'Import a binary file and extract structured data with human review if confidence is low',
+					},
+				],
+				default: 'parseDocumentWithHITL',
+			},
       {
         displayName: 'Agent Name or ID',
         name: PROPERTY_NAME_AGENT_ID,
@@ -231,6 +246,8 @@ export class CradlAi implements INodeType {
             throw new NodeOperationError(this.getNode(), 'Failed to get resume URL for execution', { itemIndex });
           }
           variables[resumeUrlVariableName] = { 'value': resumeUrl };
+        } else if (this.getWorkflowStaticData('node').actionId) {
+          await deleteAction(this, agentId);
         }
 
         const useExistingDocument = getParam(PROPERTY_NAME_USE_EXISTING_DOCUMENT, DEFAULT_VALUE_USE_EXISTING_DOCUMENT);

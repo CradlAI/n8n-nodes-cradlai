@@ -40,10 +40,26 @@ export class CradlAiTrigger implements INodeType {
         name: WEBHOOK_NAME,
         httpMethod: 'POST',
         responseMode: 'onReceived',
-        path: 'webhook',
+        path: '',
+        isFullPath: true,
       },
     ],
     properties: [
+      {
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				options: [
+					{
+						name: 'Parsed and Reviewed Document Received',
+						value: 'parsedAndReviewedDocumentReceived',
+						description: 'Receive a webhook from Cradl AI when a document has been parsed and validated',
+						action: 'Receive a webhook when a document has been parsed and validated'
+					},
+				],
+				default: 'parsedAndReviewedDocumentReceived',
+			},
       {
         displayName: 'Agent Name or ID',
         name: PROPERTY_NAME_AGENT_ID,
@@ -101,7 +117,8 @@ export class CradlAiTrigger implements INodeType {
         if (!webhookUrl) return false;
 
         const hmacSecret = this.getNodeParameter(PROPERTY_NAME_HMAC_SECRET) as string | undefined;
-        return await updateAction(this, action, webhookUrl, hmacSecret);
+        await updateAction(this, action, webhookUrl, hmacSecret);
+        return true;
       },
 
       async create(this: IHookFunctions): Promise<boolean> {
@@ -112,14 +129,16 @@ export class CradlAiTrigger implements INodeType {
         if (!webhookUrl) return false;
 
         const hmacSecret = this.getNodeParameter(PROPERTY_NAME_HMAC_SECRET) as string | undefined;
-        return await createAction(this, agentId, webhookUrl, hmacSecret);
+        await createAction(this, agentId, webhookUrl, hmacSecret);
+        return true;
       },
 
       async delete(this: IHookFunctions): Promise<boolean> {
         const agentId = this.getNodeParameter(PROPERTY_NAME_AGENT_ID) as string | undefined;
         if (!agentId) return false;
 
-        return await deleteAction(this, agentId);
+        await deleteAction(this, agentId);
+        return true;
       },
     },
   };

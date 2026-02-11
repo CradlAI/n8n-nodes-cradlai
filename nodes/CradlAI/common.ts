@@ -78,16 +78,26 @@ export const handleWebhookResponse = async (context: IWebhookFunctions): Promise
 
   const req = context.getRequestObject();
 
-  const document = await cradlApiRequest(context, {
-    method: 'GET',
-    path: `/documents/${req.body.context.documentId}`,
-  });
+  let document;
+  let documentContent;
+  try {
+    document = await cradlApiRequest(context, {
+      method: 'GET',
+      path: `/documents/${req.body.context.documentId}`,
+    });
 
-  const documentContent = await cradlApiRequest(context, {
-    method: 'GET',
-    url: document.fileUrl,
-    encoding: 'arraybuffer',
-  });
+    documentContent = await cradlApiRequest(context, {
+      method: 'GET',
+      url: document.fileUrl,
+      encoding: 'arraybuffer',
+    });
+  } catch (error: unknown) {
+    throw new NodeOperationError(
+      context.getNode(),
+      error as Error,
+      { message: `Failed to retrieve document ${req.body.context.documentId} from Cradl AI` },
+    );
+  }
 
   const response: INodeExecutionData = {
     json: {
@@ -156,21 +166,23 @@ export const updateAction = async (
   action: Action,
   webhookUrl: string,
   hmacSecret?: string,
-): Promise<boolean> => {
+) => {
   const data = context.getWorkflowStaticData('node');
+  const workflowName = context.getWorkflow().name;
   const nodeId = context.getNode().id;
 
   let needsUpdate = false;
 
   if (action.functionId !== EXPORT_TO_N8N_FUNCTION_ID) needsUpdate = true;
-  if (action.config.url !== webhookUrl) needsUpdate = true;
+  if (action.config.hmacSecret !== hmacSecret) needsUpdate = true;
   if (action.config.httpMethod !== 'POST') needsUpdate = true;
   if (action.config.nodeId !== nodeId) needsUpdate = true;
-  if (action.config.hmacSecret !== hmacSecret) needsUpdate = true;
+  if (action.config.url !== webhookUrl) needsUpdate = true;
+  if (action.config.workflowName !== workflowName) needsUpdate = true;
 
   if (!needsUpdate) {
     data.actionId = action.actionId;
-    return true;
+    return;
   }
 
   try {
@@ -184,15 +196,18 @@ export const updateAction = async (
           httpMethod: 'POST',
           nodeId,
           url: webhookUrl,
+          workflowName,
         },
       },
     })
-
     data.actionId = action.actionId;
-    return true;
-  } catch { /* empty */ }
-
-  return false;
+  } catch (error: unknown) {
+    throw new NodeOperationError(
+      context.getNode(),
+      error as Error,
+      { message: 'Failed to update webhook in Cradl AI' },
+    );
+  }
 }
 
 export const createAction = async (
@@ -200,8 +215,9 @@ export const createAction = async (
   agentId: string,
   webhookUrl: string,
   hmacSecret?: string,
-): Promise<boolean> => {
+) => {
   const data = context.getWorkflowStaticData('node');
+  const workflowName = context.getWorkflow().name;
   const nodeId = context.getNode().id;
 
   const cleanupFns: (() => Promise<unknown>)[] = [];
@@ -227,6 +243,7 @@ export const createAction = async (
           httpMethod: 'POST',
           nodeId,
           url: webhookUrl,
+          workflowName,
         },
       },
     });
@@ -281,18 +298,21 @@ export const createAction = async (
     });
 
     data.actionId = action.actionId as string;
-    return true;
-  } catch {
+  } catch (error: unknown) {
     await onCleanup();
+    throw new NodeOperationError(
+      context.getNode(),
+      error as Error,
+      { message: 'Failed to create webhook in Cradl AI' },
+    );
   }
-
-  return false;
 }
 
 export const deleteAction = async (context: IHookFunctions | IExecuteFunctions, agentId: string): Promise<boolean> => {
   const data = context.getWorkflowStaticData('node');
+  const action = await getAction(context, agentId);
 
-  if (data.actionId !== undefined) {
+  if (action) {
     try {
       const { hooks } = await cradlApiRequest(context, { method: 'GET', path: '/hooks' });
       const deletedHookIds = [];
@@ -300,11 +320,11 @@ export const deleteAction = async (context: IHookFunctions | IExecuteFunctions, 
       for (const hook of hooks) {
         const updates: { trueActionId?: string | null; falseActionId?: string | null } = {};
 
-        if (hook.trueActionId === data.actionId) {
+        if (hook.trueActionId === action.actionId) {
           updates.trueActionId = null;
         }
 
-        if (hook.falseActionId === data.actionId) {
+        if (hook.falseActionId === action.actionId) {
           updates.falseActionId = null;
         }
 
@@ -330,7 +350,7 @@ export const deleteAction = async (context: IHookFunctions | IExecuteFunctions, 
 
       await cradlApiRequest(context, {
         method: 'DELETE',
-        path: `/actions/${data.actionId}`,
+        path: `/actions/${action.actionId}`,
       });
 
       const agent = await cradlApiRequest(context, {
@@ -342,13 +362,17 @@ export const deleteAction = async (context: IHookFunctions | IExecuteFunctions, 
         method: 'PATCH',
         path: `/agents/${agentId}`,
         body: {
-          resourceIds: [...agent.resourceIds].filter((id: string) => id !== data.actionId),
+          resourceIds: [...agent.resourceIds].filter((id: string) => id !== action.actionId),
         },
       });
 
       delete data.actionId;
-    } catch {
-      return false;
+    } catch (error: unknown) {
+      throw new NodeOperationError(
+        context.getNode(),
+        error as Error,
+        { message: 'Failed to delete webhook in Cradl AI' },
+      );
     }
   }
 
@@ -387,23 +411,16 @@ export async function getDocumentIdOptions(this: ILoadOptionsFunctions): Promise
   return options;
 }
 
-export const ensureWebhookExists = async (context: IExecuteFunctions, agentId: string, webhookUrl: string, hmacSecret?: string): Promise<boolean> => {
+export const ensureWebhookExists = async (
+  context: IExecuteFunctions,
+  agentId: string,
+  webhookUrl: string,
+  hmacSecret?: string,
+) => {
   const action = await getAction(context, agentId);
-  let exists;
-
   if (action) {
-    exists = await updateAction(context, action, webhookUrl, hmacSecret);
+    await updateAction(context, action, webhookUrl, hmacSecret);
   } else {
-    exists = false;
+    await createAction(context, agentId, webhookUrl, hmacSecret);
   }
-
-  if (exists) return true;
-
-  exists = await createAction(context, agentId, webhookUrl, hmacSecret);
-
-  if (!exists) {
-    throw new NodeOperationError(context.getNode(), `Failed to create dynamic webhook for agent ${agentId}`);
-  }
-
-  return true;
 }

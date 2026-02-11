@@ -2,16 +2,19 @@
 	"node": "@cradl/n8n-nodes-cradlai",
 	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
-	"categories": ["Development", "Developer Tools", "Utility"],
+	"categories": ["Development", "Utility", "Productivity", "Data & Storage", "HITL"],
+	"subcategories": {
+		"HITL": ["Human in the Loop"]
+	},
 	"resources": {
 		"credentialDocumentation": [
 			{
-				"url": "https://github.com/org/repo?tab=readme-ov-file#credentials"
+				"url": "https://docs.cradl.ai"
 			}
 		],
 		"primaryDocumentation": [
 			{
-				"url": "https://github.com/org/repo?tab=readme-ov-file"
+				"url": "https://docs.cradl.ai"
 			}
 		]
 	}
