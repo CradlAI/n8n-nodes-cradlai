@@ -7,7 +7,7 @@ services:
     env_file: .env
     volumes:
       - n8n_data:/home/node/.n8n
-      - ./dist:/home/node/.n8n/custom/cradlai
+      - ./dist:/home/node/cradlai
 
   ngrok:
     image: ngrok/ngrok:latest
