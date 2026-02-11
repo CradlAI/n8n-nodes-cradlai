@@ -1,8 +1,9 @@
 import {
   VersionedNodeType,
-  INodeTypeBaseDescription,
-  IVersionedNodeType,
+  type INodeTypeBaseDescription,
+  type IVersionedNodeType,
 } from 'n8n-workflow';
+
 import { CradlAiTriggerV1 } from './v1/CradlAiTriggerV1.node';
 
 export class CradlAiTrigger extends VersionedNodeType {
