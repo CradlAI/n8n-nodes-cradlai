@@ -8,12 +8,12 @@ import { CradlAiTriggerV1 } from './v1/CradlAiTriggerV1.node';
 export class CradlAiTrigger extends VersionedNodeType {
   constructor() {
 		const baseDescription: INodeTypeBaseDescription = {
-      displayName: 'Cradl AI Trigger',
-      name: 'cradlAiTrigger',
-      icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
-      group: ['trigger'],
       defaultVersion: 1,
       description: 'Handle processed document events via webhooks',
+      displayName: 'Cradl AI Trigger',
+      group: ['trigger'],
+      icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
+      name: 'cradlAiTrigger',
       usableAsTool: true,
 		};
 
