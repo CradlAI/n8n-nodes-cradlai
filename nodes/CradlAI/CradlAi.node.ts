@@ -15,6 +15,7 @@ export class CradlAi extends VersionedNodeType {
       group: ['transform'],
       icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
       name: 'cradlAi',
+      subtitle: '={{ $parameter["operation"] }}',
       usableAsTool: true,
     };
 

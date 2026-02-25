@@ -17,8 +17,13 @@ import {
   WEBHOOK_NAME,
 } from './constants';
 
-const versionDescription: Omit<INodeTypeDescription, 'displayName' | 'name' | 'description' | 'group'> = {
+const versionDescription: INodeTypeDescription = {
   version: 1,
+  description: 'Handle processed document events via webhooks',
+  displayName: 'Cradl AI Trigger',
+  group: ['trigger'],
+  icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
+  name: 'cradlAiTrigger',
   defaults: { name: 'Cradl AI Trigger' },
   inputs: [],
   outputs: [NodeConnectionTypes.Main],

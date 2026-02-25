@@ -31,8 +31,13 @@ import {
 } from './constants';
 
 
-const versionDescription: Omit<INodeTypeDescription, 'displayName' | 'name' | 'description' | 'group'> = {
+const versionDescription: INodeTypeDescription = {
   version: 1,
+  description: 'Extract data reliably from any document',
+  displayName: 'Cradl AI',
+  group: ['transform'],
+  icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
+  name: 'cradlAi',
   defaults: { name: 'Cradl AI' },
   inputs: [NodeConnectionTypes.Main],
   outputs: [NodeConnectionTypes.Main],

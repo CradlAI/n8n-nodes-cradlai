@@ -15,6 +15,7 @@ export class CradlAiTrigger extends VersionedNodeType {
       group: ['trigger'],
       icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
       name: 'cradlAiTrigger',
+      subtitle: '={{ $parameter["operation"] }}',
       usableAsTool: true,
     };
 
