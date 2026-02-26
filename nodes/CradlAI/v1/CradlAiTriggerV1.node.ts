@@ -24,6 +24,7 @@ const versionDescription: INodeTypeDescription = {
   group: ['trigger'],
   icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
   name: 'cradlAiTrigger',
+  subtitle: '={{ $parameter["operation"] }}',
   defaults: { name: 'Cradl AI Trigger' },
   inputs: [],
   outputs: [NodeConnectionTypes.Main],
@@ -50,13 +51,12 @@ const versionDescription: INodeTypeDescription = {
       noDataExpression: true,
       options: [
         {
-          name: 'Parsed and Reviewed Document Received',
-          value: 'parsedAndReviewedDocumentReceived',
-          description: 'Receive a webhook from Cradl AI when a document has been parsed and validated',
-          action: 'Receive a webhook when a document has been parsed and validated'
+          name: 'On Parsed and Validated Document',
+          value: 'onParsedAndValidatedDocument',
+          action: 'On parsed and validated document',
         },
       ],
-      default: 'parsedAndReviewedDocumentReceived',
+      default: 'onParsedAndValidatedDocument',
     },
     {
       displayName: 'Agent Name or ID',

@@ -38,6 +38,7 @@ const versionDescription: INodeTypeDescription = {
   group: ['transform'],
   icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
   name: 'cradlAi',
+  subtitle: '={{ $parameter["operation"] }}',
   defaults: { name: 'Cradl AI' },
   inputs: [NodeConnectionTypes.Main],
   outputs: [NodeConnectionTypes.Main],
@@ -66,13 +67,12 @@ const versionDescription: INodeTypeDescription = {
       noDataExpression: true,
       options: [
         {
-          name: 'Parse Document with HITL',
-          value: 'parseDocumentWithHITL',
-          description: 'Import a binary file into Cradl AI and extract structured data, with human review if confidence is low',
-          action: 'Import a binary file and extract structured data with human review if confidence is low',
+          name: 'Extract Data From Document',
+          value: 'extractDataFromDocument',
+          action: 'Extract data from document with human review',
         },
       ],
-      default: 'parseDocumentWithHITL',
+      default: 'extractDataFromDocument',
     },
     {
       displayName: 'Agent Name or ID',
