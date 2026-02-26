@@ -33,7 +33,7 @@ import {
 
 const versionDescription: INodeTypeDescription = {
   version: 1,
-  description: 'Extract data reliably from any document',
+  description: 'Extract data from documents with AI + human-in-the-loop exception handling.',
   displayName: 'Cradl AI',
   group: ['transform'],
   icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
@@ -86,7 +86,7 @@ const versionDescription: INodeTypeDescription = {
       required: true,
     },
     {
-      displayName: 'Use Existing Document',
+      displayName: 'Test Node on Previous Run',
       name: PROPERTY_NAME_USE_EXISTING_DOCUMENT,
       type: 'boolean',
       // eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-boolean
@@ -94,7 +94,7 @@ const versionDescription: INodeTypeDescription = {
       description: 'Whether to use an existing document or create a new one',
     },
     {
-      displayName: 'Document Name or ID',
+      displayName: 'Previous Run Document Name or ID',
       name: PROPERTY_NAME_DOCUMENT_ID,
       type: 'options',
       typeOptions: {
