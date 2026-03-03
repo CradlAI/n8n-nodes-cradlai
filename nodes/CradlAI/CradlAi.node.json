@@ -1,0 +1,29 @@
+{
+	"node": "n8n-nodes-cradlai",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": [
+		"Development",
+		"Utility",
+		"Productivity",
+		"Data & Storage",
+		"HITL"
+	],
+	"subcategories": {
+		"HITL": [
+			"Human in the Loop"
+		]
+	},
+	"resources": {
+		"credentialDocumentation": [
+			{
+				"url": "https://docs.cradl.ai"
+			}
+		],
+		"primaryDocumentation": [
+			{
+				"url": "https://docs.cradl.ai"
+			}
+		]
+	}
+}
