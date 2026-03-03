@@ -1,8 +1,7 @@
 name: Publish Package to npmjs
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch
 
 jobs:
   build:
@@ -28,4 +27,3 @@ jobs:
       - run: npm run release
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          RELEASE_IT_NO_GIT_REQUIRE_COMMITS: 1
