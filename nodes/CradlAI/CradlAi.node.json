@@ -17,12 +17,12 @@
 	"resources": {
 		"credentialDocumentation": [
 			{
-				"url": "https://docs.cradl.ai"
+				"url": "https://docs.cradl.ai/integrations/n8n"
 			}
 		],
 		"primaryDocumentation": [
 			{
-				"url": "https://docs.cradl.ai"
+				"url": "https://docs.cradl.ai/integrations/n8n"
 			}
 		]
 	}

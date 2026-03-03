@@ -33,7 +33,7 @@ import {
 
 const versionDescription: INodeTypeDescription = {
   version: 1,
-  description: 'Extract data from any document with built-in validation, guardrails, and human-in-the-loop exception handling.',
+  description: 'Document processing AI agents you can trust. Run production-grade agents that reliably extract and validate data, with built-in guardrails and human-in-the-loop exception handling.',
   displayName: 'Cradl AI',
   group: ['transform'],
   icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
