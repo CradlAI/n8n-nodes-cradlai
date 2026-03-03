@@ -57,7 +57,7 @@ This node requires OAuth2 authentication with Cradl AI.
 
 ### Setup Instructions
 
-1. **Create OAuth2 Application in Cradl AI:**
+1. **Locate OAuth2 credentials in Cradl AI:**
    - Navigate to [https://rc.app.cradl.ai](https://rc.app.cradl.ai)
    - Go to Account Settings → API
    - Locate the Client ID and Client Secret under API credentials
