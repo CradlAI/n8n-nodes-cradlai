@@ -17,7 +17,7 @@ export class CradlAiApi implements ICredentialType {
 
   displayName = 'Cradl AI API';
 
-  documentationUrl = 'https://docs.cradl.ai/api-reference/introduction';
+  documentationUrl = 'https://docs.cradl.ai/integrations/n8n';
 
   properties: INodeProperties[] = [
     {
@@ -32,6 +32,7 @@ export class CradlAiApi implements ICredentialType {
     },
     {
       displayName: 'Client ID',
+      description: 'The Client ID from the Cradl AI n8n integration panel. Used to authenticate your connection.',
       name: 'clientId',
       type: 'string',
       default: '',
@@ -39,6 +40,7 @@ export class CradlAiApi implements ICredentialType {
     },
     {
       displayName: 'Client Secret',
+      description: 'The Client Secret from the Cradl AI n8n integration panel. Keep this value secure.',
       name: 'clientSecret',
       type: 'string',
       typeOptions: {
@@ -55,6 +57,7 @@ export class CradlAiApi implements ICredentialType {
     },
     {
       displayName: 'API Base URL',
+      description: 'The base URL for the Cradl AI API',
       name: 'apiBaseUrl',
       type: 'string',
       default: DEFAULT_API_BASE_URL,
@@ -66,6 +69,7 @@ export class CradlAiApi implements ICredentialType {
     },
     {
       displayName: 'Access Token URL',
+      description: 'The URL to obtain access tokens from the Cradl AI API',
       name: 'accessTokenUrl',
       type: 'string',
       default: DEFAULT_ACCESS_TOKEN_URL,

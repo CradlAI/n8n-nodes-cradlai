@@ -13,18 +13,16 @@ import { cradlApiRequest } from '../common/api';
 import { deleteAction, ensureWebhookExists, getAgentIdOptions, getDocumentIdOptions, handleWebhookResponse } from './common';
 import { CREDENTIALS_NAME } from '../common/constants';
 import {
-  DEFAULT_VALUE_CALCULATE_SIGNATURE,
   DEFAULT_VALUE_RESUME_URL_VARIABLE_NAME,
-  DEFAULT_VALUE_USE_EXISTING_DOCUMENT,
+  DEFAULT_VALUE_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING,
   DEFAULT_VALUE_VARIABLES,
   DEFAULT_VALUE_WAIT_FOR_RESULTS,
   PROPERTY_NAME_AGENT_ID,
-  PROPERTY_NAME_CALCULATE_SIGNATURE,
   PROPERTY_NAME_DOCUMENT_BINARY_DATA,
   PROPERTY_NAME_DOCUMENT_ID,
   PROPERTY_NAME_HMAC_SECRET,
   PROPERTY_NAME_RESUME_URL_VARIABLE_NAME,
-  PROPERTY_NAME_USE_EXISTING_DOCUMENT,
+  PROPERTY_NAME_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING,
   PROPERTY_NAME_VARIABLES,
   PROPERTY_NAME_WAIT_FOR_RESULTS,
   WEBHOOK_NAME,
@@ -69,7 +67,8 @@ const versionDescription: INodeTypeDescription = {
         {
           name: 'Extract Data From Document',
           value: 'extractDataFromDocument',
-          action: 'Extract data from document with human review',
+          action: 'Extract data from document',
+          description: 'Extract data from documents with AI-powered processing and optional human review for low-confidence results',
         },
       ],
       default: 'extractDataFromDocument',
@@ -82,19 +81,19 @@ const versionDescription: INodeTypeDescription = {
         loadOptionsMethod: 'getAgentIdOptions',
       },
       default: '',
-      description: 'Select a value from the API. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+      description: 'Select which Cradl AI agent this node should use. This determines how the document is processed and what data is extracted. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
       required: true,
     },
     {
-      displayName: 'Test Node on Previous Run',
-      name: PROPERTY_NAME_USE_EXISTING_DOCUMENT,
+      displayName: 'Use Previously Uploaded Document for Testing',
+      name: PROPERTY_NAME_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING,
       type: 'boolean',
       // eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-boolean
-      default: DEFAULT_VALUE_USE_EXISTING_DOCUMENT,
-      description: 'Whether to use an existing document or create a new one',
+      default: DEFAULT_VALUE_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING,
+      description: 'Whether to use a document from an earlier execution instead of uploading a new one. Helpful when testing or adjusting your workflow.',
     },
     {
-      displayName: 'Previous Run Document Name or ID',
+      displayName: 'Recent Document Name or ID',
       name: PROPERTY_NAME_DOCUMENT_ID,
       type: 'options',
       typeOptions: {
@@ -106,7 +105,7 @@ const versionDescription: INodeTypeDescription = {
         }
       },
       default: '',
-      description: 'Select a value from the API. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+      description: 'Reference a document from an earlier execution to reuse it for testing or debugging without uploading a new file. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
       required: true,
     },
     {
@@ -119,7 +118,7 @@ const versionDescription: INodeTypeDescription = {
         }
       },
       default: '',
-      description: 'The binary property name of the document to process',
+      description: 'The property name of the binary file to process (for example a PDF or image). Usually mapped from a previous node that outputs binary data.',
       required: true,
     },
     {
@@ -128,7 +127,7 @@ const versionDescription: INodeTypeDescription = {
       type: 'boolean',
       // eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-boolean
       default: DEFAULT_VALUE_WAIT_FOR_RESULTS,
-      description: 'Whether to wait for the agent run to complete and return the results',
+      description: 'Whether the node waits until processing is complete and returns the extracted data. If disabled, execution continues immediately and results must be retrieved later—useful for asynchronous flows.',
     },
     {
       displayName: 'Show Advanced Options',
@@ -137,24 +136,11 @@ const versionDescription: INodeTypeDescription = {
       default: false,
     },
     {
-      displayName: 'Resume URL Variable Name',
-      name: PROPERTY_NAME_RESUME_URL_VARIABLE_NAME,
-      type: 'string',
-      default: DEFAULT_VALUE_RESUME_URL_VARIABLE_NAME,
-      description: 'The name of the variable to pass the resume URL in. Only used if "Wait for Results" is enabled.',
-      displayOptions: {
-        show: {
-          waitForResults: [true],
-          showAdvancedOptions: [true],
-        }
-      },
-    },
-    {
       displayName: 'Variables',
       name: PROPERTY_NAME_VARIABLES,
       type: 'json',
       default: DEFAULT_VALUE_VARIABLES,
-      description: 'JSON object containing variables to pass to the agent run',
+      description: 'A JSON object sent along with the document. These values are available inside your Cradl AI workflow and included in the final output.',
       displayOptions: {
         show: {
           showAdvancedOptions: [true],
@@ -162,14 +148,14 @@ const versionDescription: INodeTypeDescription = {
       },
     },
     {
-      displayName: 'Calculate Signature',
-      name: PROPERTY_NAME_CALCULATE_SIGNATURE,
-      type: 'boolean',
-      // eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-boolean
-      default: DEFAULT_VALUE_CALCULATE_SIGNATURE,
-      description: 'Whether to calculate HMAC signature for incoming webhooks for additional security',
+      displayName: 'Resume URL Variable Name',
+      name: PROPERTY_NAME_RESUME_URL_VARIABLE_NAME,
+      type: 'string',
+      default: DEFAULT_VALUE_RESUME_URL_VARIABLE_NAME,
+      description: 'The name of the variable that will store the resume URL',
       displayOptions: {
         show: {
+          waitForResults: [true],
           showAdvancedOptions: [true],
         }
       },
@@ -182,10 +168,10 @@ const versionDescription: INodeTypeDescription = {
         password: true,
       },
       default: undefined,
-      description: 'The secret used to calculate the HMAC signature',
+      description: 'The shared secret used to generate and verify the HMAC signature. Keep this value secure.',
       displayOptions: {
         show: {
-          calculateSignature: [true],
+          waitForResults: [true],
           showAdvancedOptions: [true],
         },
       },
@@ -238,14 +224,8 @@ export class CradlAiV1 implements INodeType {
         variables.triggerSource = { value: 'n8n' };
 
         if (waitForResults) {
-          const calculateSignature = getParam(PROPERTY_NAME_CALCULATE_SIGNATURE, DEFAULT_VALUE_CALCULATE_SIGNATURE);
-          let hmacSecret;
-          if (calculateSignature) {
-            hmacSecret = getParam<string>(PROPERTY_NAME_HMAC_SECRET);
-          } else {
-            hmacSecret = undefined;
-          }
-
+          const credentials = await this.getCredentials(CREDENTIALS_NAME);
+          const hmacSecret = getParam<string>(PROPERTY_NAME_HMAC_SECRET, credentials.clientSecret as string | undefined);
           const resumeUrlVariableName = getParam(PROPERTY_NAME_RESUME_URL_VARIABLE_NAME, DEFAULT_VALUE_RESUME_URL_VARIABLE_NAME);
           const webhookUrl = `$\{${resumeUrlVariableName}}`;
 
@@ -255,16 +235,19 @@ export class CradlAiV1 implements INodeType {
           if (!resumeUrl) {
             throw new NodeOperationError(this.getNode(), 'Failed to get resume URL for execution', { itemIndex });
           }
-          variables[resumeUrlVariableName] = { 'value': resumeUrl };
+          variables.resumeUrlVariableName = { 'value': resumeUrl };
         } else if (this.getWorkflowStaticData('node').actionId) {
           await deleteAction(this, agentId);
         }
 
-        const useExistingDocument = getParam(PROPERTY_NAME_USE_EXISTING_DOCUMENT, DEFAULT_VALUE_USE_EXISTING_DOCUMENT);
+        const usePreviouslyUploadedDocumentForTesting = getParam(
+          PROPERTY_NAME_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING,
+          DEFAULT_VALUE_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING
+        );
         let documentContent;
         let documentFileName;
 
-        if (useExistingDocument) {
+        if (usePreviouslyUploadedDocumentForTesting) {
           const documentId = getParam<string>(PROPERTY_NAME_DOCUMENT_ID);
 
           const document = await cradlApiRequest(this, {

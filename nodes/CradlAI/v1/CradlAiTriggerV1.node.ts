@@ -10,9 +10,7 @@ import {
 import { createAction, deleteAction, getAction, getAgentIdOptions, handleWebhookResponse, updateAction } from './common';
 import { CREDENTIALS_NAME } from '../common/constants';
 import {
-  DEFAULT_VALUE_CALCULATE_SIGNATURE,
   PROPERTY_NAME_AGENT_ID,
-  PROPERTY_NAME_CALCULATE_SIGNATURE,
   PROPERTY_NAME_HMAC_SECRET,
   WEBHOOK_NAME,
 } from './constants';
@@ -51,12 +49,13 @@ const versionDescription: INodeTypeDescription = {
       noDataExpression: true,
       options: [
         {
-          name: 'On Parsed and Validated Document',
-          value: 'onParsedAndValidatedDocument',
-          action: 'On parsed and validated document',
+          name: 'On Extracted Data From Document',
+          value: 'onExtractedDataFromDocument',
+          action: 'On extracted data from document',
+          description: 'Triggers when document data extraction is completed. If human-in-the-loop is configured, the trigger fires after the review step is finished.',
         },
       ],
-      default: 'onParsedAndValidatedDocument',
+      default: 'onExtractedDataFromDocument',
     },
     {
       displayName: 'Agent Name or ID',
@@ -66,16 +65,14 @@ const versionDescription: INodeTypeDescription = {
         loadOptionsMethod: 'getAgentIdOptions',
       },
       default: '',
-      description: 'Select a value from the API. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+      description: 'Select which Cradl AI agent this node should use. This determines how the document is processed and what data is extracted. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
       required: true,
     },
     {
-      displayName: 'Calculate Signature',
-      name: PROPERTY_NAME_CALCULATE_SIGNATURE,
+      displayName: 'Show Advanced Options',
+      name: 'showAdvancedOptions',
       type: 'boolean',
-      // eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-boolean
-      default: DEFAULT_VALUE_CALCULATE_SIGNATURE,
-      description: 'Whether to calculate HMAC signature for incoming webhooks for security',
+      default: false,
     },
     {
       displayName: 'HMAC Secret',
@@ -85,10 +82,10 @@ const versionDescription: INodeTypeDescription = {
         password: true,
       },
       default: '',
-      description: 'The secret used to calculate the HMAC signature',
+      description: 'The shared secret used to generate and verify the HMAC signature. Keep this value secure.',
       displayOptions: {
         show: {
-          calculateSignature: [true],
+          showAdvancedOptions: [true],
         },
       },
     },
@@ -124,7 +121,9 @@ export class CradlAiTriggerV1 implements INodeType {
         const webhookUrl = this.getNodeWebhookUrl(WEBHOOK_NAME);
         if (!webhookUrl) return false;
 
-        const hmacSecret = this.getNodeParameter(PROPERTY_NAME_HMAC_SECRET) as string | undefined;
+        const credentials = await this.getCredentials(CREDENTIALS_NAME);
+        const hmacSecret = this.getNodeParameter(PROPERTY_NAME_HMAC_SECRET, credentials.clientSecret as string | undefined) as string | undefined;
+
         await updateAction(this, action, webhookUrl, hmacSecret);
         return true;
       },
@@ -136,7 +135,9 @@ export class CradlAiTriggerV1 implements INodeType {
         const webhookUrl = this.getNodeWebhookUrl(WEBHOOK_NAME);
         if (!webhookUrl) return false;
 
-        const hmacSecret = this.getNodeParameter(PROPERTY_NAME_HMAC_SECRET) as string | undefined;
+        const credentials = await this.getCredentials(CREDENTIALS_NAME);
+        const hmacSecret = this.getNodeParameter(PROPERTY_NAME_HMAC_SECRET, credentials.clientSecret as string | undefined) as string | undefined;
+
         await createAction(this, agentId, webhookUrl, hmacSecret);
         return true;
       },

@@ -13,7 +13,7 @@ import {
 import { createHmac } from 'crypto';
 import { cradlApiRequest } from '../common/api';
 import { CREDENTIALS_NAME, EVALUATE_PREDICTION_FUNCTION_ID, EXPORT_TO_N8N_FUNCTION_ID } from '../common/constants';
-import { DEFAULT_VALUE_CALCULATE_SIGNATURE, PROPERTY_NAME_CALCULATE_SIGNATURE, PROPERTY_NAME_HMAC_SECRET } from './constants';
+import { PROPERTY_NAME_HMAC_SECRET } from './constants';
 
 export type Action = {
   actionId: string;
@@ -67,8 +67,7 @@ export const verifySignature = async (context: IWebhookFunctions) => {
 }
 
 export const handleWebhookResponse = async (context: IWebhookFunctions): Promise<IWebhookResponseData> => {
-  const calculateSignature = getParam(context, PROPERTY_NAME_CALCULATE_SIGNATURE, DEFAULT_VALUE_CALCULATE_SIGNATURE);
-  if (calculateSignature) await verifySignature(context);
+  await verifySignature(context);
 
   const req = context.getRequestObject();
 
