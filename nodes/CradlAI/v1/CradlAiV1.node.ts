@@ -235,6 +235,7 @@ export class CradlAiV1 implements INodeType {
       try {
         const agentId = getParam<string>(PROPERTY_NAME_AGENT_ID);
         const variables = JSON.parse(getParam<string>(PROPERTY_NAME_VARIABLES, DEFAULT_VALUE_VARIABLES));
+        variables.triggerSource = { value: 'n8n' };
 
         if (waitForResults) {
           const calculateSignature = getParam(PROPERTY_NAME_CALCULATE_SIGNATURE, DEFAULT_VALUE_CALCULATE_SIGNATURE);
