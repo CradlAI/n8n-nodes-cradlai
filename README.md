@@ -2,16 +2,20 @@
 
 This is an n8n community node. It lets you use Cradl AI in your n8n workflows.
 
-Cradl AI is an intelligent document processing platform that uses AI to extract, validate, and process data from documents with human-in-the-loop capabilities.
-
 [n8n](https://n8n.io/) is a [fair-code licensed](https://docs.n8n.io/sustainable-use-license/) workflow automation platform.
 
-[Installation](#installation)
-[Operations](#operations)
-[Credentials](#credentials)
-[Compatibility](#compatibility)
-[Usage](#usage)
-[Resources](#resources)
+## Cradl AI
+
+Document processing AI agents you can trust. Run production-grade agents that reliably extract and validate data, with built-in guardrails and human-in-the-loop exception handling.
+
+## Overview
+
+- [Installation](#installation)
+- [Operations](#operations)
+- [Credentials](#credentials)
+- [Compatibility](#compatibility)
+- [Usage](#usage)
+- [Resources](#resources)
 
 ## Installation
 
@@ -53,13 +57,13 @@ This node requires OAuth2 authentication with Cradl AI.
 
 ### Setup Instructions
 
-1. **Create OAuth2 Application in Cradl AI:**
+1. **Locate OAuth2 credentials in Cradl AI:**
    - Navigate to [https://rc.app.cradl.ai](https://rc.app.cradl.ai)
-   - Go to Organization Settings → OAuth Applications
-   - Create a new application and note the Client ID and Client Secret
+   - Go to Account Settings ⮕ API
+   - Locate the Client ID and Client Secret under API credentials
 
 2. **Configure Credentials in n8n:**
-   - Create new credentials of type **Cradl AI OAuth2 API**
+   - Create new credentials of type **Cradl AI API**
    - Enter your Client ID and Client Secret
    - The Authorization URL, Token URL, Scope, and Audience are pre-configured
    - Click **Connect my account** and authorize the application
@@ -89,8 +93,8 @@ This node requires OAuth2 authentication with Cradl AI.
    - **Wait for Results**: Enable to pause workflow until processing completes
    - **Variables**: Pass custom JSON data to your agent workflow
 4. Advanced options (when waiting for results):
-   - **Resume URL Variable Name**: Customize the webhook variable name (default: `resumeUrl`)
-   - **HMAC Secret**: Override default secret for webhook signature verification
+   - **Resume URL Variable Name**: Customize the webhook variable name (default: `n8nResumeUrl`)
+   - **HMAC Secret**: Override default secret for webhook signature verification if needed
 
 The node will create an agent run, upload the document, and either return immediately or wait for processing completion based on your configuration.
 
@@ -99,9 +103,9 @@ The node will create an agent run, upload the document, and either return immedi
 The node accepts document data from any source that provides binary output:
 
 ```
-HTTP Request → Cradl AI
-Webhook → Cradl AI
-Read Binary File → Cradl AI
+HTTP Request ⮕ Cradl AI
+Webhook ⮕ Cradl AI
+Read Binary File ⮕ Cradl AI
 ```
 
 Specify the binary property name (e.g., `data`) in the **Document Binary Data** field.
@@ -123,19 +127,19 @@ When **Wait for Results** is enabled:
 
 **Synchronous Document Processing:**
 ```
-Manual Trigger → Read Binary File → Cradl AI (wait enabled) → Send Email
+Manual Trigger ⮕ Read Binary File ⮕ Cradl AI (wait enabled) ⮕ Send Email
 ```
 
 **Asynchronous Processing with Trigger:**
 ```
-Workflow 1: Webhook → Cradl AI (wait disabled) → Store Run ID
+Workflow 1: Webhook ⮕ Cradl AI (wait disabled) ⮕ Store Run ID
 
-Workflow 2: Cradl AI Trigger → Process Results → Update Database
+Workflow 2: Cradl AI Trigger ⮕ Process Results ⮕ Update Database
 ```
 
 **Batch Processing:**
 ```
-Schedule → List Files → Loop Over Items → Cradl AI → Aggregate Results
+Schedule ⮕ List Files ⮕ Loop Over Items ⮕ Cradl AI ⮕ Aggregate Results
 ```
 
 ## Resources
