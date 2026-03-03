@@ -14,6 +14,7 @@ import { deleteAction, ensureWebhookExists, getAgentIdOptions, getDocumentIdOpti
 import { CREDENTIALS_NAME } from '../common/constants';
 import {
   DEFAULT_VALUE_RESUME_URL_VARIABLE_NAME,
+  DEFAULT_VALUE_SHOW_ADVANCED_OPTIONS,
   DEFAULT_VALUE_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING,
   DEFAULT_VALUE_VARIABLES,
   DEFAULT_VALUE_WAIT_FOR_RESULTS,
@@ -22,6 +23,7 @@ import {
   PROPERTY_NAME_DOCUMENT_ID,
   PROPERTY_NAME_HMAC_SECRET,
   PROPERTY_NAME_RESUME_URL_VARIABLE_NAME,
+  PROPERTY_NAME_SHOW_ADVANCED_OPTIONS,
   PROPERTY_NAME_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING,
   PROPERTY_NAME_VARIABLES,
   PROPERTY_NAME_WAIT_FOR_RESULTS,
@@ -31,7 +33,7 @@ import {
 
 const versionDescription: INodeTypeDescription = {
   version: 1,
-  description: 'Extract data from documents with AI + human-in-the-loop exception handling.',
+  description: 'Extract data from any document with built-in validation, guardrails, and human-in-the-loop exception handling.',
   displayName: 'Cradl AI',
   group: ['transform'],
   icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
@@ -101,7 +103,7 @@ const versionDescription: INodeTypeDescription = {
       },
       displayOptions: {
         show: {
-          useExistingDocument: [true],
+          [PROPERTY_NAME_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING]: [true],
         }
       },
       default: '',
@@ -114,7 +116,7 @@ const versionDescription: INodeTypeDescription = {
       type: 'string',
       displayOptions: {
         show: {
-          useExistingDocument: [false],
+          [PROPERTY_NAME_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING]: [false],
         }
       },
       default: '',
@@ -131,9 +133,10 @@ const versionDescription: INodeTypeDescription = {
     },
     {
       displayName: 'Show Advanced Options',
-      name: 'showAdvancedOptions',
+      name: PROPERTY_NAME_SHOW_ADVANCED_OPTIONS,
       type: 'boolean',
-      default: false,
+      // eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-boolean
+      default: DEFAULT_VALUE_SHOW_ADVANCED_OPTIONS,
     },
     {
       displayName: 'Variables',
@@ -143,7 +146,7 @@ const versionDescription: INodeTypeDescription = {
       description: 'A JSON object sent along with the document. These values are available inside your Cradl AI workflow and included in the final output.',
       displayOptions: {
         show: {
-          showAdvancedOptions: [true],
+          [PROPERTY_NAME_SHOW_ADVANCED_OPTIONS]: [true],
         }
       },
     },
@@ -155,8 +158,8 @@ const versionDescription: INodeTypeDescription = {
       description: 'The name of the variable that will store the resume URL',
       displayOptions: {
         show: {
-          waitForResults: [true],
-          showAdvancedOptions: [true],
+          [PROPERTY_NAME_SHOW_ADVANCED_OPTIONS]: [true],
+          [PROPERTY_NAME_WAIT_FOR_RESULTS]: [true],
         }
       },
     },
@@ -171,8 +174,8 @@ const versionDescription: INodeTypeDescription = {
       description: 'The shared secret used to generate and verify the HMAC signature. Keep this value secure.',
       displayOptions: {
         show: {
-          waitForResults: [true],
-          showAdvancedOptions: [true],
+          [PROPERTY_NAME_SHOW_ADVANCED_OPTIONS]: [true],
+          [PROPERTY_NAME_WAIT_FOR_RESULTS]: [true],
         },
       },
     },
@@ -235,7 +238,7 @@ export class CradlAiV1 implements INodeType {
           if (!resumeUrl) {
             throw new NodeOperationError(this.getNode(), 'Failed to get resume URL for execution', { itemIndex });
           }
-          variables.resumeUrlVariableName = { 'value': resumeUrl };
+          variables[resumeUrlVariableName] = { 'value': resumeUrl };
         } else if (this.getWorkflowStaticData('node').actionId) {
           await deleteAction(this, agentId);
         }

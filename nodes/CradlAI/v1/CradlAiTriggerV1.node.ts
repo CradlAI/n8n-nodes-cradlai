@@ -10,14 +10,16 @@ import {
 import { createAction, deleteAction, getAction, getAgentIdOptions, handleWebhookResponse, updateAction } from './common';
 import { CREDENTIALS_NAME } from '../common/constants';
 import {
+  DEFAULT_VALUE_SHOW_ADVANCED_OPTIONS,
   PROPERTY_NAME_AGENT_ID,
   PROPERTY_NAME_HMAC_SECRET,
+  PROPERTY_NAME_SHOW_ADVANCED_OPTIONS,
   WEBHOOK_NAME,
 } from './constants';
 
 const versionDescription: INodeTypeDescription = {
   version: 1,
-  description: 'Handle processed document events via webhooks',
+  description: 'Extract data from any document with built-in validation, guardrails, and human-in-the-loop exception handling.',
   displayName: 'Cradl AI Trigger',
   group: ['trigger'],
   icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
@@ -70,9 +72,10 @@ const versionDescription: INodeTypeDescription = {
     },
     {
       displayName: 'Show Advanced Options',
-      name: 'showAdvancedOptions',
+      name: PROPERTY_NAME_SHOW_ADVANCED_OPTIONS,
       type: 'boolean',
-      default: false,
+      // eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-boolean
+      default: DEFAULT_VALUE_SHOW_ADVANCED_OPTIONS,
     },
     {
       displayName: 'HMAC Secret',
@@ -85,7 +88,7 @@ const versionDescription: INodeTypeDescription = {
       description: 'The shared secret used to generate and verify the HMAC signature. Keep this value secure.',
       displayOptions: {
         show: {
-          showAdvancedOptions: [true],
+          [PROPERTY_NAME_SHOW_ADVANCED_OPTIONS]: [true],
         },
       },
     },

@@ -10,7 +10,7 @@ export class CradlAi extends VersionedNodeType {
   constructor() {
     const baseDescription: INodeTypeBaseDescription = {
       defaultVersion: 1,
-      description: 'Extract data from documents with AI + human-in-the-loop exception handling.',
+      description: 'Extract data from any document with built-in validation, guardrails, and human-in-the-loop exception handling.',
       displayName: 'Cradl AI',
       group: ['transform'],
       icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
