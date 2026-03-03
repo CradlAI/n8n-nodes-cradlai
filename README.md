@@ -103,9 +103,9 @@ The node will create an agent run, upload the document, and either return immedi
 The node accepts document data from any source that provides binary output:
 
 ```
-HTTP Request → Cradl AI
-Webhook → Cradl AI
-Read Binary File → Cradl AI
+HTTP Request ⮕ Cradl AI
+Webhook ⮕ Cradl AI
+Read Binary File ⮕ Cradl AI
 ```
 
 Specify the binary property name (e.g., `data`) in the **Document Binary Data** field.
@@ -127,19 +127,19 @@ When **Wait for Results** is enabled:
 
 **Synchronous Document Processing:**
 ```
-Manual Trigger → Read Binary File → Cradl AI (wait enabled) → Send Email
+Manual Trigger ⮕ Read Binary File ⮕ Cradl AI (wait enabled) ⮕ Send Email
 ```
 
 **Asynchronous Processing with Trigger:**
 ```
-Workflow 1: Webhook → Cradl AI (wait disabled) → Store Run ID
+Workflow 1: Webhook ⮕ Cradl AI (wait disabled) ⮕ Store Run ID
 
-Workflow 2: Cradl AI Trigger → Process Results → Update Database
+Workflow 2: Cradl AI Trigger ⮕ Process Results ⮕ Update Database
 ```
 
 **Batch Processing:**
 ```
-Schedule → List Files → Loop Over Items → Cradl AI → Aggregate Results
+Schedule ⮕ List Files ⮕ Loop Over Items ⮕ Cradl AI ⮕ Aggregate Results
 ```
 
 ## Resources
