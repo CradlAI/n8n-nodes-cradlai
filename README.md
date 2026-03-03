@@ -4,7 +4,7 @@ This is an n8n community node. It lets you use Cradl AI in your n8n workflows.
 
 [n8n](https://n8n.io/) is a [fair-code licensed](https://docs.n8n.io/sustainable-use-license/) workflow automation platform.
 
-## Whait is Cradl AI?
+## What is Cradl AI?
 
 Document processing AI agents you can trust. Run production-grade agents that reliably extract and validate data, with built-in guardrails and human-in-the-loop exception handling.
 
