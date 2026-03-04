@@ -1,6 +1,6 @@
 {
     "name": "@cradl/n8n-nodes-cradlai",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "Nodes for integrating with Cradl AI",
     "license": "MIT",
     "publishConfig": {
