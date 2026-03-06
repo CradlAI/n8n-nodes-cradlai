@@ -207,6 +207,7 @@ export class CradlAiV1 implements INodeType {
   async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
     const waitForResults = this.getNodeParameter(PROPERTY_NAME_WAIT_FOR_RESULTS, 0, DEFAULT_VALUE_WAIT_FOR_RESULTS) as unknown as boolean;
     const items = this.getInputData();
+    const returnData: INodeExecutionData[] = [];
 
     for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
       const getParam = <T>(name: string, defaultValue?: T) => {
@@ -218,8 +219,6 @@ export class CradlAiV1 implements INodeType {
 
         return param as T;
       };
-
-      const item = items[itemIndex];
 
       try {
         const agentId = getParam<string>(PROPERTY_NAME_AGENT_ID);
@@ -290,18 +289,19 @@ export class CradlAiV1 implements INodeType {
           encoding: 'arraybuffer'
         });
 
-        item.json.run = run;
+        returnData.push(...this.helpers.constructExecutionMetaData(
+          this.helpers.returnJsonArray(run),
+          { itemData: { item: itemIndex } },
+        ));
       } catch (error) {
         if (this.continueOnFail()) {
-          items.push({ json: this.getInputData(itemIndex)[0].json, error, pairedItem: itemIndex });
+          returnData.push({ json: this.getInputData(itemIndex)[0].json, error, pairedItem: itemIndex });
         } else {
           if (error.context) {
             error.context.itemIndex = itemIndex;
             throw error;
           }
-          throw new NodeOperationError(this.getNode(), error, {
-            itemIndex,
-          });
+          throw new NodeOperationError(this.getNode(), error, { itemIndex });
         }
       }
     }
@@ -310,7 +310,7 @@ export class CradlAiV1 implements INodeType {
       await this.putExecutionToWait(WAIT_INDEFINITELY);
       return [this.getInputData()];
     } else {
-      return [items];
+      return [returnData];
     }
   }
 }
