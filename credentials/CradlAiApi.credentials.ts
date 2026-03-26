@@ -13,7 +13,7 @@ const DEFAULT_ACCESS_TOKEN_URL = 'https://auth.cradl.ai/oauth2/token';
 export class CradlAiApi implements ICredentialType {
   name = 'cradlAiApi';
 
-  icon = undefined;
+  icon = { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' } as const;
 
   displayName = 'Cradl AI API';
 

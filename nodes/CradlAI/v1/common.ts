@@ -8,6 +8,7 @@ import {
   IWebhookFunctions,
   IWebhookResponseData,
   JsonObject,
+  LoggerProxy as Logger,
   NodeOperationError,
 } from 'n8n-workflow';
 import { createHmac } from 'crypto';
@@ -17,6 +18,7 @@ import { PROPERTY_NAME_HMAC_SECRET } from './constants';
 
 export type Action = {
   actionId: string;
+  enabled: boolean;
   functionId: string;
   config: JsonObject;
 }
@@ -29,6 +31,12 @@ const getParam = <T>(context: IWebhookFunctions, name: string, defaultValue?: T)
   }
 
   return param as T;
+}
+
+const logDebug = (context: IHookFunctions | IExecuteFunctions, message: string) => {
+  const executionId = context.getExecutionId();
+  const workflow = context.getWorkflow();
+  Logger.debug(message, { executionId, workflowId: workflow.id, workflowName: workflow.name });
 }
 
 export const verifySignature = async (context: IWebhookFunctions) => {
@@ -62,7 +70,7 @@ export const verifySignature = async (context: IWebhookFunctions) => {
 
   const signature = getHeader('x-cradl-signature');
   if (calculatedSignature !== signature) {
-    throw new NodeOperationError(context.getNode(), `Invalid signature: received ${signature} but expected ${calculatedSignature} signing message: ${parts.join('')}`);
+    throw new NodeOperationError(context.getNode(), `Invalid signature: received ${signature} but expected ${calculatedSignature}`);
   }
 }
 
@@ -121,7 +129,9 @@ export const getAction = async (context: IHookFunctions | IExecuteFunctions, age
         method: 'GET',
         path: `/actions/${data.actionId}`,
       });
-    } catch { /* empty */ }
+    } catch {
+      logDebug(context, `Action with ID "${data.actionId}" not found, will attempt to find by agent resourceIds`);
+    }
   }
 
   try {
@@ -149,7 +159,9 @@ export const getAction = async (context: IHookFunctions | IExecuteFunctions, age
         return action as Action;
       }
     }
-  } catch { /* empty */ }
+  } catch {
+    logDebug(context, 'Failed to retrieve action');
+  }
 
   return;
 }
@@ -172,6 +184,7 @@ export const updateAction = async (
   if (action.config.nodeId !== nodeId) needsUpdate = true;
   if (action.config.url !== webhookUrl) needsUpdate = true;
   if (action.config.workflowName !== workflowName) needsUpdate = true;
+  if (action.enabled !== true) needsUpdate = true;
 
   if (!needsUpdate) {
     data.actionId = action.actionId;
@@ -179,10 +192,11 @@ export const updateAction = async (
   }
 
   try {
-    cradlApiRequest(context, {
+    await cradlApiRequest(context, {
       method: 'PATCH',
       path: `/actions/${action.actionId}`,
       body: {
+        enabled: true,
         functionId: EXPORT_TO_N8N_FUNCTION_ID,
         config: {
           hmacSecret,
@@ -220,7 +234,9 @@ export const createAction = async (
     for (const fn of [...cleanupFns].reverse()) {
       try {
         await fn();
-      } catch { /* empty */ }
+      } catch {
+        logDebug(context, 'Failed to cleanup Cradl AI resource, manual cleanup may be required');
+      }
     }
   };
 
@@ -229,6 +245,7 @@ export const createAction = async (
       method: 'POST',
       path: '/actions',
       body: {
+        enabled: true,
         functionId: EXPORT_TO_N8N_FUNCTION_ID,
         name: 'Export to n8n',
         config: {

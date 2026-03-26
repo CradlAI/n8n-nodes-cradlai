@@ -3,8 +3,9 @@
 	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
 	"categories": [
+		"Data & Storage",
 		"Development",
-		"Developer Tools",
+		"Productivity",
 		"Utility"
 	],
 	"resources": {
