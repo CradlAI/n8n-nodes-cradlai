@@ -3,17 +3,11 @@
 	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
 	"categories": [
-		"Development",
-		"Utility",
-		"Productivity",
 		"Data & Storage",
-		"HITL"
+		"Development",
+		"Productivity",
+		"Utility"
 	],
-	"subcategories": {
-		"HITL": [
-			"Human in the Loop"
-		]
-	},
 	"resources": {
 		"credentialDocumentation": [
 			{
