@@ -9,6 +9,7 @@ import {
   IWebhookResponseData,
   JsonObject,
   LoggerProxy as Logger,
+  NodeApiError,
   NodeOperationError,
 } from 'n8n-workflow';
 import { createHmac } from 'crypto';
@@ -93,9 +94,9 @@ export const handleWebhookResponse = async (context: IWebhookFunctions): Promise
       encoding: 'arraybuffer',
     });
   } catch (error: unknown) {
-    throw new NodeOperationError(
+    throw new NodeApiError(
       context.getNode(),
-      error as Error,
+      error as JsonObject,
       { message: `Failed to retrieve document ${req.body.context.documentId} from Cradl AI` },
     );
   }
@@ -209,9 +210,9 @@ export const updateAction = async (
     })
     data.actionId = action.actionId;
   } catch (error: unknown) {
-    throw new NodeOperationError(
+    throw new NodeApiError(
       context.getNode(),
-      error as Error,
+      error as JsonObject,
       { message: 'Failed to update webhook in Cradl AI' },
     );
   }
@@ -310,9 +311,9 @@ export const createAction = async (
     data.actionId = action.actionId as string;
   } catch (error: unknown) {
     await onCleanup();
-    throw new NodeOperationError(
+    throw new NodeApiError(
       context.getNode(),
-      error as Error,
+      error as JsonObject,
       { message: 'Failed to create webhook in Cradl AI' },
     );
   }
@@ -378,9 +379,9 @@ export const deleteAction = async (context: IHookFunctions | IExecuteFunctions, 
 
       delete data.actionId;
     } catch (error: unknown) {
-      throw new NodeOperationError(
+      throw new NodeApiError(
         context.getNode(),
-        error as Error,
+        error as JsonObject,
         { message: 'Failed to delete webhook in Cradl AI' },
       );
     }
