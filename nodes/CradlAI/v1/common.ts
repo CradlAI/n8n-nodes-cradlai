@@ -419,7 +419,7 @@ export async function getDocumentIdOptions(this: ILoadOptionsFunctions): Promise
   }
 
   return options;
-};
+}
 
 export const ensureWebhookExists = async (
   context: IExecuteFunctions,
