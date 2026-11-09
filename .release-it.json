@@ -1,5 +1,8 @@
 {
   "git": {
     "requireCommits": false
+  },
+  "npm": {
+    "skipChecks": true
   }
 }
