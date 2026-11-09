@@ -246,6 +246,8 @@ export const createAction = async (
       method: 'POST',
       path: '/actions',
       body: {
+        /* The Action and its Hooks belong to the agent from the start, and leave it when they're deleted */
+        agentId,
         enabled: true,
         functionId: EXPORT_TO_N8N_FUNCTION_ID,
         name: 'Export to n8n',
@@ -268,6 +270,7 @@ export const createAction = async (
       method: 'POST',
       path: '/hooks',
       body: {
+        agentId,
         config: {},
         trigger: 'ValidationTask has Completed',
         trueActionId: action.actionId,
@@ -283,6 +286,7 @@ export const createAction = async (
       method: 'POST',
       path: '/hooks',
       body: {
+        agentId,
         functionId: EVALUATE_PREDICTION_FUNCTION_ID,
         config: {},
         trigger: 'Prediction is Created',
@@ -294,19 +298,6 @@ export const createAction = async (
       method: 'DELETE',
       path: `/hooks/${autoHook.hookId}`,
     }));
-
-    const agent = await cradlApiRequest(context, {
-      method: 'GET',
-      path: `/agents/${agentId}`,
-    });
-
-    await cradlApiRequest(context, {
-      method: 'PATCH',
-      path: `/agents/${agentId}`,
-      body: {
-        resourceIds: [...agent.resourceIds, action.actionId, reviewHook.hookId, autoHook.hookId],
-      },
-    });
 
     data.actionId = action.actionId as string;
   } catch (error: unknown) {
@@ -359,22 +350,10 @@ export const deleteAction = async (context: IHookFunctions | IExecuteFunctions, 
         }
       }
 
+      /* Deleting the Action also takes it out of the agent */
       await cradlApiRequest(context, {
         method: 'DELETE',
         path: `/actions/${action.actionId}`,
-      });
-
-      const agent = await cradlApiRequest(context, {
-        method: 'GET',
-        path: `/agents/${agentId}`,
-      });
-
-      await cradlApiRequest(context, {
-        method: 'PATCH',
-        path: `/agents/${agentId}`,
-        body: {
-          resourceIds: [...agent.resourceIds].filter((id: string) => id !== action.actionId),
-        },
       });
 
       delete data.actionId;
