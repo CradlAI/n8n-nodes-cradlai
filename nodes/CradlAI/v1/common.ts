@@ -246,7 +246,6 @@ export const createAction = async (
       method: 'POST',
       path: '/actions',
       body: {
-        /* The Action and its Hooks belong to the agent from the start, and leave it when they're deleted */
         agentId,
         enabled: true,
         functionId: EXPORT_TO_N8N_FUNCTION_ID,
@@ -350,7 +349,6 @@ export const deleteAction = async (context: IHookFunctions | IExecuteFunctions, 
         }
       }
 
-      /* Deleting the Action also takes it out of the agent */
       await cradlApiRequest(context, {
         method: 'DELETE',
         path: `/actions/${action.actionId}`,
