@@ -37,6 +37,11 @@ jobs:
 
       - run: npm ci
 
+      # Fail before releasing if the version would not pass n8n's review
+      - run: npm run build
+
+      - run: npm run scan
+
       - run: npm run release
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}

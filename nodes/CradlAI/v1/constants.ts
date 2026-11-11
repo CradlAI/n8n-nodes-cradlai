@@ -14,7 +14,6 @@ export const PROPERTY_NAME_WAIT_FOR_RESULTS = 'waitForResults';
 /* Default values */
 export const DEFAULT_VALUE_RESUME_URL_VARIABLE = 'resumeUrlVariableName';
 export const DEFAULT_VALUE_RESUME_URL_VARIABLE_NAME = 'n8nResumeUrl';
-export const DEFAULT_VALUE_SHOW_ADVANCED_OPTIONS = false;
 export const DEFAULT_VALUE_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING = false;
 export const DEFAULT_VALUE_VARIABLES = '{}';
 export const DEFAULT_VALUE_WAIT_FOR_RESULTS = true;

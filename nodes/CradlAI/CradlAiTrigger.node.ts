@@ -16,7 +16,6 @@ export class CradlAiTrigger extends VersionedNodeType {
       icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
       name: 'cradlAiTrigger',
       subtitle: '={{ $parameter["operation"] }}',
-      usableAsTool: true,
     };
 
     const nodeVersions: IVersionedNodeType['nodeVersions'] = {
