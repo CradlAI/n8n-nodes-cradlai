@@ -1,5 +1,5 @@
 {
-	"node": "n8n-nodes-cradlai",
+	"node": "@cradl/n8n-nodes-cradlai.cradlAiTrigger",
 	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
 	"categories": [

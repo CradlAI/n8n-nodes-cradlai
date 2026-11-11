@@ -7,14 +7,14 @@ import type {
   INodeTypeDescription,
   IWebhookFunctions,
   IWebhookResponseData,
+  JsonObject,
 } from 'n8n-workflow';
-import { NodeConnectionTypes, NodeOperationError, WAIT_INDEFINITELY } from 'n8n-workflow';
+import { NodeApiError, NodeConnectionTypes, NodeOperationError, WAIT_INDEFINITELY } from 'n8n-workflow';
 import { cradlApiRequest } from '../common/api';
 import { deleteAction, ensureWebhookExists, getAgentIdOptions, getDocumentIdOptions, handleWebhookResponse } from './common';
 import { CREDENTIALS_NAME } from '../common/constants';
 import {
   DEFAULT_VALUE_RESUME_URL_VARIABLE_NAME,
-  DEFAULT_VALUE_SHOW_ADVANCED_OPTIONS,
   DEFAULT_VALUE_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING,
   DEFAULT_VALUE_VARIABLES,
   DEFAULT_VALUE_WAIT_FOR_RESULTS,
@@ -30,166 +30,165 @@ import {
   WEBHOOK_NAME,
 } from './constants';
 
+// Resumes the execution when the agent run is done, like the Wait node. execute() registers it with Cradl AI and removes
+// it again, so the webhookMethods lifecycle of trigger nodes does not apply. It is kept out of the description literal
+// because the @n8n/community-nodes/webhook-lifecycle-complete rule treats every node with webhooks as a trigger.
+const webhooks: INodeTypeDescription['webhooks'] = [
+  {
+    name: WEBHOOK_NAME,
+    httpMethod: 'POST',
+    responseMode: 'onReceived',
+    path: '',
+    restartWebhook: true,
+    isFullPath: true,
+  },
+];
 
-const versionDescription: INodeTypeDescription = {
-  version: 1,
-  description: 'Document processing AI agents you can trust. Run production-grade agents that reliably extract and validate data, with built-in guardrails and human-in-the-loop exception handling.',
-  displayName: 'Cradl AI',
-  group: ['transform'],
-  icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
-  name: 'cradlAi',
-  subtitle: '={{ $parameter["operation"] }}',
-  defaults: { name: 'Cradl AI' },
-  inputs: [NodeConnectionTypes.Main],
-  outputs: [NodeConnectionTypes.Main],
-  credentials: [
-    {
-      name: CREDENTIALS_NAME,
-      required: true,
-    }
-  ],
-  waitingNodeTooltip: `=Execution will continue when webhook is received on {{ $execution.resumeUrl }}`,
-  webhooks: [
-    {
-      name: WEBHOOK_NAME,
-      httpMethod: 'POST',
-      responseMode: 'onReceived',
-      path: '',
-      restartWebhook: true,
-      isFullPath: true,
-    },
-  ],
-  properties: [
-    {
-      displayName: 'Operation',
-      name: 'operation',
-      type: 'options',
-      noDataExpression: true,
-      options: [
-        {
-          name: 'Extract Data From Document',
-          value: 'extractDataFromDocument',
-          action: 'Extract data from document',
-          description: 'Extract data from documents with AI-powered processing and optional human review for low-confidence results',
-        },
-      ],
-      default: 'extractDataFromDocument',
-    },
-    {
-      displayName: 'Agent Name or ID',
-      name: PROPERTY_NAME_AGENT_ID,
-      type: 'options',
-      typeOptions: {
-        loadOptionsMethod: 'getAgentIdOptions',
-      },
-      default: '',
-      description: 'Select which Cradl AI agent this node should use. This determines how the document is processed and what data is extracted. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-      required: true,
-    },
-    {
-      displayName: 'Use Previously Uploaded Document for Testing',
-      name: PROPERTY_NAME_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING,
-      type: 'boolean',
-      // eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-boolean
-      default: DEFAULT_VALUE_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING,
-      description: 'Whether to use a document from an earlier execution instead of uploading a new one. Helpful when testing or adjusting your workflow.',
-    },
-    {
-      displayName: 'Recent Document Name or ID',
-      name: PROPERTY_NAME_DOCUMENT_ID,
-      type: 'options',
-      typeOptions: {
-        loadOptionsMethod: 'getDocumentIdOptions',
-      },
-      displayOptions: {
-        show: {
-          [PROPERTY_NAME_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING]: [true],
-        }
-      },
-      default: '',
-      description: 'Reference a document from an earlier execution to reuse it for testing or debugging without uploading a new file. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-      required: true,
-    },
-    {
-      displayName: 'Document Binary Data',
-      name: PROPERTY_NAME_DOCUMENT_BINARY_DATA,
-      type: 'string',
-      displayOptions: {
-        show: {
-          [PROPERTY_NAME_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING]: [false],
-        }
-      },
-      default: '',
-      description: 'The property name of the binary file to process (for example a PDF or image). Usually mapped from a previous node that outputs binary data.',
-      required: true,
-    },
-    {
-      displayName: 'Wait for Results',
-      name: PROPERTY_NAME_WAIT_FOR_RESULTS,
-      type: 'boolean',
-      // eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-boolean
-      default: DEFAULT_VALUE_WAIT_FOR_RESULTS,
-      description: 'Whether the node waits until processing is complete and returns the extracted data. If disabled, execution continues immediately and results must be retrieved later—useful for asynchronous flows.',
-    },
-    {
-      displayName: 'Show Advanced Options',
-      name: PROPERTY_NAME_SHOW_ADVANCED_OPTIONS,
-      type: 'boolean',
-      // eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-boolean
-      default: DEFAULT_VALUE_SHOW_ADVANCED_OPTIONS,
-    },
-    {
-      displayName: 'Variables',
-      name: PROPERTY_NAME_VARIABLES,
-      type: 'json',
-      default: DEFAULT_VALUE_VARIABLES,
-      description: 'A JSON object sent along with the document. These values are available inside your Cradl AI workflow and included in the final output.',
-      displayOptions: {
-        show: {
-          [PROPERTY_NAME_SHOW_ADVANCED_OPTIONS]: [true],
-        }
-      },
-    },
-    {
-      displayName: 'Resume URL Variable Name',
-      name: PROPERTY_NAME_RESUME_URL_VARIABLE_NAME,
-      type: 'string',
-      default: DEFAULT_VALUE_RESUME_URL_VARIABLE_NAME,
-      description: 'The name of the variable that will store the resume URL',
-      displayOptions: {
-        show: {
-          [PROPERTY_NAME_SHOW_ADVANCED_OPTIONS]: [true],
-          [PROPERTY_NAME_WAIT_FOR_RESULTS]: [true],
-        }
-      },
-    },
-    {
-      displayName: 'HMAC Secret',
-      name: PROPERTY_NAME_HMAC_SECRET,
-      type: 'string',
-      typeOptions: {
-        password: true,
-      },
-      default: undefined,
-      description: 'The shared secret used to generate and verify the HMAC signature. Keep this value secure.',
-      displayOptions: {
-        show: {
-          [PROPERTY_NAME_SHOW_ADVANCED_OPTIONS]: [true],
-          [PROPERTY_NAME_WAIT_FOR_RESULTS]: [true],
-        },
-      },
-    },
-  ],
-};
-
-/* eslint-disable @n8n/community-nodes/icon-validation */
 export class CradlAiV1 implements INodeType {
-  description: INodeTypeDescription;
+  description: INodeTypeDescription = {
+    version: 1,
+    description: 'Document processing AI agents you can trust. Run production-grade agents that reliably extract and validate data, with built-in guardrails and human-in-the-loop exception handling.',
+    displayName: 'Cradl AI',
+    group: ['transform'],
+    icon: { light: 'file:cradl.svg', dark: 'file:cradl.dark.svg' },
+    name: 'cradlAi',
+    subtitle: '={{ $parameter["operation"] }}',
+    usableAsTool: true,
+    defaults: { name: 'Cradl AI' },
+    inputs: [NodeConnectionTypes.Main],
+    outputs: [NodeConnectionTypes.Main],
+    credentials: [
+      {
+        name: CREDENTIALS_NAME,
+        required: true,
+      }
+    ],
+    waitingNodeTooltip: `=Execution will continue when webhook is received on {{ $execution.resumeUrl }}`,
+    webhooks,
+    properties: [
+      {
+        displayName: 'Operation',
+        name: 'operation',
+        type: 'options',
+        noDataExpression: true,
+        options: [
+          {
+            name: 'Extract Data From Document',
+            value: 'extractDataFromDocument',
+            action: 'Extract data from document',
+            description: 'Extract data from documents with AI-powered processing and optional human review for low-confidence results',
+          },
+        ],
+        default: 'extractDataFromDocument',
+      },
+      {
+        displayName: 'Agent Name or ID',
+        name: PROPERTY_NAME_AGENT_ID,
+        type: 'options',
+        typeOptions: {
+          loadOptionsMethod: 'getAgentIdOptions',
+        },
+        default: '',
+        description: 'Select which Cradl AI agent this node should use. This determines how the document is processed and what data is extracted. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+        required: true,
+      },
+      {
+        displayName: 'Use Previously Uploaded Document for Testing',
+        name: PROPERTY_NAME_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING,
+        type: 'boolean',
+        default: false,
+        description: 'Whether to use a document from an earlier execution instead of uploading a new one. Helpful when testing or adjusting your workflow.',
+      },
+      {
+        displayName: 'Recent Document Name or ID',
+        name: PROPERTY_NAME_DOCUMENT_ID,
+        type: 'options',
+        typeOptions: {
+          loadOptionsMethod: 'getDocumentIdOptions',
+        },
+        displayOptions: {
+          show: {
+            [PROPERTY_NAME_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING]: [true],
+          }
+        },
+        default: '',
+        description: 'Reference a document from an earlier execution to reuse it for testing or debugging without uploading a new file. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+        required: true,
+      },
+      {
+        displayName: 'Document Binary Data',
+        name: PROPERTY_NAME_DOCUMENT_BINARY_DATA,
+        type: 'string',
+        displayOptions: {
+          show: {
+            [PROPERTY_NAME_USE_PREVIOUSLY_UPLOADED_DOCUMENT_FOR_TESTING]: [false],
+          }
+        },
+        default: '',
+        description: 'The property name of the binary file to process (for example a PDF or image). Usually mapped from a previous node that outputs binary data.',
+        required: true,
+      },
+      {
+        displayName: 'Wait for Results',
+        name: PROPERTY_NAME_WAIT_FOR_RESULTS,
+        type: 'boolean',
+        default: true,
+        description: 'Whether the node waits until processing is complete and returns the extracted data. If disabled, execution continues immediately and results must be retrieved later—useful for asynchronous flows.',
+      },
+      {
+        displayName: 'Show Advanced Options',
+        name: PROPERTY_NAME_SHOW_ADVANCED_OPTIONS,
+        type: 'boolean',
+        default: false,
+      },
+      {
+        displayName: 'Variables',
+        name: PROPERTY_NAME_VARIABLES,
+        type: 'json',
+        default: DEFAULT_VALUE_VARIABLES,
+        description: 'A JSON object sent along with the document. These values are available inside your Cradl AI workflow and included in the final output.',
+        displayOptions: {
+          show: {
+            [PROPERTY_NAME_SHOW_ADVANCED_OPTIONS]: [true],
+          }
+        },
+      },
+      {
+        displayName: 'Resume URL Variable Name',
+        name: PROPERTY_NAME_RESUME_URL_VARIABLE_NAME,
+        type: 'string',
+        default: DEFAULT_VALUE_RESUME_URL_VARIABLE_NAME,
+        description: 'The name of the variable that will store the resume URL',
+        displayOptions: {
+          show: {
+            [PROPERTY_NAME_SHOW_ADVANCED_OPTIONS]: [true],
+            [PROPERTY_NAME_WAIT_FOR_RESULTS]: [true],
+          }
+        },
+      },
+      {
+        displayName: 'HMAC Secret',
+        name: PROPERTY_NAME_HMAC_SECRET,
+        type: 'string',
+        typeOptions: {
+          password: true,
+        },
+        default: undefined,
+        description: 'The shared secret used to generate and verify the HMAC signature. Keep this value secure.',
+        displayOptions: {
+          show: {
+            [PROPERTY_NAME_SHOW_ADVANCED_OPTIONS]: [true],
+            [PROPERTY_NAME_WAIT_FOR_RESULTS]: [true],
+          },
+        },
+      },
+    ],
+  };
 
   constructor(baseDescription: INodeTypeBaseDescription) {
     this.description = {
       ...baseDescription,
-      ...versionDescription,
+      ...this.description,
     };
   }
 
@@ -297,9 +296,12 @@ export class CradlAiV1 implements INodeType {
         if (this.continueOnFail()) {
           returnData.push({ json: this.getInputData(itemIndex)[0].json, error, pairedItem: itemIndex });
         } else {
+          // Both constructors return an error of their own type as is, ignoring the itemIndex option
           if (error.context) {
             error.context.itemIndex = itemIndex;
-            throw error;
+          }
+          if (error instanceof NodeApiError) {
+            throw new NodeApiError(this.getNode(), error as unknown as JsonObject, { itemIndex });
           }
           throw new NodeOperationError(this.getNode(), error, { itemIndex });
         }

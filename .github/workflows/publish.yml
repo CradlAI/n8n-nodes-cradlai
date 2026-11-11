@@ -37,6 +37,28 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run release
+      # Fail before releasing if the version would not pass n8n's review
+      - run: npm run lint
+
+      - run: npm run build
+
+      - run: npm run scan
+
+      # Inside GitHub Actions `n8n-node release` only publishes, so run release-it as it does locally, plus publishing:
+      # bump the patch version, update the changelog, commit, tag, push, create the GitHub release and publish to npm
+      - run: >-
+          npx release-it --ci
+          --git.requireBranch=main
+          --git.requireCleanWorkingDir
+          --git.requireUpstream
+          --git.requireCommits
+          --git.commit
+          --git.tag
+          --git.push
+          --git.changelog="npx auto-changelog --stdout --unreleased --commit-limit false -u --hide-credit"
+          --github.release
+          --hooks.after:bump="npx auto-changelog -p"
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          # Lets the prepublishOnly guard of n8n-node through
+          RELEASE_MODE: 'true'
